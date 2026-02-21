@@ -65,9 +65,14 @@ model Track {
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  permissions TrackPermission[]
-  records     Record[]
-  auditLogs   AuditLog[]
+  permissions  TrackPermission[]
+  records      Record[]
+  auditLogs    AuditLog[]
+  employees    Employee[]
+  deliverables Deliverable[]
+  kpis         TrackKPI[]
+  penalties    Penalty[]
+  scopes       Scope[]
 
   @@map("tracks")
 }
@@ -86,6 +91,119 @@ model TrackPermission {
   @@index([userId])
   @@index([trackId])
   @@map("track_permissions")
+}
+
+// ─── EMPLOYEES (from Excel) ───
+
+model Employee {
+  id              String   @id @default(cuid())
+  trackId         String?  @map("track_id")
+  fullName        String   @map("full_name")
+  fullNameAr      String   @map("full_name_ar")
+  position        String?
+  positionAr      String?  @map("position_ar")
+  subTrack        String?  @map("sub_track")
+  directManager   String?  @map("direct_manager")
+  contractStatus  String?  @map("contract_status")
+  jobDescription  String?  @map("job_description")  @db.Text
+  kpiText         String?  @map("kpi_text")          @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  track     Track?     @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  contracts Contract[]
+
+  @@index([trackId])
+  @@map("employees")
+}
+
+model Contract {
+  id            String   @id @default(cuid())
+  employeeId    String?  @map("employee_id")
+  employeeName  String   @map("employee_name")
+  position      String?
+  trackName     String?  @map("track_name")
+  contractType  String?  @map("contract_type")
+  monthlySalary Float?   @map("monthly_salary")
+  months        Float?
+  totalValue    Float?   @map("total_value")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@map("contracts")
+}
+
+model Deliverable {
+  id                  String   @id @default(cuid())
+  trackId             String   @map("track_id")
+  name                String
+  nameAr              String   @map("name_ar")
+  outputs             String?  @db.Text
+  deliveryIndicators  String?  @map("delivery_indicators") @db.Text
+  sortOrder           Int      @default(0)  @map("sort_order")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([trackId])
+  @@map("deliverables")
+}
+
+model TrackKPI {
+  id        String   @id @default(cuid())
+  trackId   String   @map("track_id")
+  name      String   @db.Text
+  nameAr    String   @map("name_ar") @db.Text
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([trackId])
+  @@map("track_kpis")
+}
+
+model Penalty {
+  id          String   @id @default(cuid())
+  trackId     String   @map("track_id")
+  violation   String   @db.Text
+  violationAr String  @map("violation_ar") @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([trackId])
+  @@map("penalties")
+}
+
+model Scope {
+  id          String   @id @default(cuid())
+  trackId     String   @map("track_id")
+  title       String   @db.Text
+  titleAr     String   @map("title_ar") @db.Text
+  description String?  @db.Text
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([trackId])
+  @@map("scopes")
+}
+
+model FinancialCost {
+  id          String   @id @default(cuid())
+  trackName   String   @map("track_name")
+  itemDetail  String   @map("item_detail")
+  tasks       String?  @db.Text
+  type        String?
+  months      Float?
+  quantity    Float?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("financial_costs")
 }
 
 // ─── RECORDS (hybrid typed + JSONB) ───

@@ -11,7 +11,7 @@ export class TracksService {
     if (role === 'admin' || role === 'pm') {
       return this.prisma.track.findMany({
         where: { isActive: true },
-        include: { _count: { select: { records: true } } },
+        include: { _count: { select: { records: true, employees: true, deliverables: true } } },
         orderBy: { sortOrder: 'asc' },
       });
     }
@@ -24,7 +24,7 @@ export class TracksService {
 
     return this.prisma.track.findMany({
       where: { id: { in: permissions.map((p) => p.trackId) }, isActive: true },
-      include: { _count: { select: { records: true } } },
+      include: { _count: { select: { records: true, employees: true, deliverables: true } } },
       orderBy: { sortOrder: 'asc' },
     });
   }
@@ -33,10 +33,15 @@ export class TracksService {
     const track = await this.prisma.track.findUnique({
       where: { id },
       include: {
-        _count: { select: { records: true } },
+        _count: { select: { records: true, employees: true, deliverables: true, kpis: true, penalties: true, scopes: true } },
         permissions: {
           include: { user: { select: { id: true, name: true, nameAr: true, role: true } } },
         },
+        employees: { orderBy: { createdAt: 'asc' } },
+        deliverables: { orderBy: { sortOrder: 'asc' } },
+        kpis: { orderBy: { sortOrder: 'asc' } },
+        penalties: { orderBy: { sortOrder: 'asc' } },
+        scopes: { orderBy: { sortOrder: 'asc' } },
       },
     });
     if (!track) throw new NotFoundException('المسار غير موجود');
@@ -72,5 +77,16 @@ export class TracksService {
       throw new ForbiddenException('ليس لديك صلاحية لهذا الإجراء');
     }
     return true;
+  }
+
+  async getContracts() {
+    return this.prisma.contract.findMany({
+      include: { employee: { select: { id: true, fullNameAr: true, trackId: true } } },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async getFinancialCosts() {
+    return this.prisma.financialCost.findMany({ orderBy: { createdAt: 'asc' } });
   }
 }

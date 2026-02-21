@@ -21,6 +21,16 @@ export class TracksController {
     return this.tracks.findAll(user.id, user.role);
   }
 
+  @Get('contracts')
+  getContracts() {
+    return this.tracks.getContracts();
+  }
+
+  @Get('financial-costs')
+  getFinancialCosts() {
+    return this.tracks.getFinancialCosts();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.tracks.findById(id);
