@@ -1,0 +1,16 @@
+{
+  "name": "nusuk-platform",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "docker compose up -d",
+    "dev:down": "docker compose down",
+    "dev:api": "cd apps/api && npm run start:dev",
+    "dev:web": "cd apps/web && npm run dev",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces --if-present"
+  }
+}

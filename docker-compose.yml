@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nusuk_db
+      POSTGRES_USER: nusuk
+      POSTGRES_PASSWORD: nusuk_secret
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nusuk -d nusuk_db']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    ports:
+      - '4000:4000'
+    environment:
+      DATABASE_URL: postgresql://nusuk:nusuk_secret@db:5432/nusuk_db
+      JWT_SECRET: ${JWT_SECRET:-nusuk-jwt-secret-change-in-production-2024}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-nusuk-refresh-secret-change-in-production-2024}
+      JWT_ACCESS_EXPIRES: ${JWT_ACCESS_EXPIRES:-15m}
+      JWT_REFRESH_EXPIRES: ${JWT_REFRESH_EXPIRES:-7d}
+      API_PORT: 4000
+      NODE_ENV: ${NODE_ENV:-development}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:4000}
+      NEXT_PUBLIC_SOCKET_URL: ${NEXT_PUBLIC_SOCKET_URL:-http://localhost:4000}
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:

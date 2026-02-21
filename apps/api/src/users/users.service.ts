@@ -1,0 +1,110 @@
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../common/prisma.service';
+import { CreateUserDto, UpdateUserDto } from './users.dto';
+
+@Injectable()
+export class UsersService {
+  constructor(private prisma: PrismaService) {}
+
+  async findAll(page = 1, pageSize = 25, search?: string) {
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { nameAr: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true, email: true, name: true, nameAr: true,
+          role: true, isActive: true, createdAt: true,
+          trackPermissions: {
+            select: {
+              trackId: true, permissions: true,
+              track: { select: { name: true, nameAr: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  }
+
+  async findById(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true, email: true, name: true, nameAr: true,
+        role: true, isActive: true, createdAt: true,
+        trackPermissions: {
+          select: {
+            trackId: true, permissions: true,
+            track: { select: { name: true, nameAr: true } },
+          },
+        },
+      },
+    });
+    if (!user) throw new NotFoundException('المستخدم غير موجود');
+    return user;
+  }
+
+  async create(dto: CreateUserDto) {
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    if (existing) throw new ConflictException('البريد الإلكتروني مستخدم بالفعل');
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+    const { password, ...rest } = dto;
+
+    return this.prisma.user.create({
+      data: { ...rest, passwordHash, role: dto.role as any },
+      select: {
+        id: true, email: true, name: true, nameAr: true,
+        role: true, isActive: true, createdAt: true,
+      },
+    });
+  }
+
+  async update(id: string, dto: UpdateUserDto) {
+    await this.findById(id);
+    return this.prisma.user.update({
+      where: { id },
+      data: dto as any,
+      select: {
+        id: true, email: true, name: true, nameAr: true,
+        role: true, isActive: true, createdAt: true,
+      },
+    });
+  }
+
+  async resetPassword(id: string, password: string) {
+    await this.findById(id);
+    const passwordHash = await bcrypt.hash(password, 12);
+    await this.prisma.user.update({ where: { id }, data: { passwordHash } });
+    return { message: 'تم تغيير كلمة المرور بنجاح' };
+  }
+
+  async setPermissions(userId: string, trackId: string, permissions: string[]) {
+    await this.findById(userId);
+    return this.prisma.trackPermission.upsert({
+      where: { userId_trackId: { userId, trackId } },
+      create: { userId, trackId, permissions },
+      update: { permissions },
+    });
+  }
+
+  async delete(id: string) {
+    await this.findById(id);
+    await this.prisma.user.delete({ where: { id } });
+    return { message: 'تم حذف المستخدم' };
+  }
+}
