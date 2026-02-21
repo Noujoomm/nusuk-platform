@@ -5,7 +5,7 @@ services:
     name: nusuk-api
     runtime: node
     region: frankfurt
-    plan: basic
+    plan: free
     buildCommand: cd apps/api && npm ci && npx prisma generate && npm run build
     startCommand: cd apps/api && npx prisma migrate deploy && node dist/main.js
     envVars:
@@ -33,7 +33,7 @@ services:
     name: nusuk-web
     runtime: node
     region: frankfurt
-    plan: starter
+    plan: free
     buildCommand: cd apps/web && npm ci && npm run build
     startCommand: cd apps/web && node .next/standalone/server.js
     envVars:
@@ -46,6 +46,6 @@ services:
 
 databases:
   - name: nusuk-db
-    plan: starter
+    plan: free
     region: frankfurt
     postgresMajorVersion: 16
