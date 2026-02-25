@@ -1,13 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Vercel handles output automatically — standalone only for Docker
-  ...(process.env.DOCKER_BUILD === 'true'
-    ? {
-        output: 'standalone',
-      }
-    : {}),
   images: {
-    remotePatterns: [],
+    unoptimized: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
