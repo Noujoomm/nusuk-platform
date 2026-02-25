@@ -1,0 +1,152 @@
+{
+  "version": "1447",
+  "source": "نطاق العمل مازن 1447 هـ (1).xlsx",
+  "description": "Nusuk 1447 Excel data mapping configuration",
+
+  "trackMapping": {
+    "إدارة المشروع": {
+      "nameAr": "إدارة المشروع",
+      "name": "Project Management",
+      "color": "#6366f1",
+      "sheets": ["الخطة الرئيسية", "مسار إدارة المشروع"]
+    },
+    "المسار الاستشاري": {
+      "nameAr": "المسار الاستشاري",
+      "name": "Consulting",
+      "color": "#8b5cf6",
+      "sheets": ["المسار الاستشاري"]
+    },
+    "مسار الطباعة": {
+      "nameAr": "طباعة وتوريد وتغليف بطاقة نسك",
+      "name": "Printing",
+      "color": "#ec4899",
+      "sheets": ["مسار الطباعة "]
+    },
+    "مسار التوزيع": {
+      "nameAr": "تجهيز وتشغيل مراكز التوزيع",
+      "name": "Distribution",
+      "color": "#f59e0b",
+      "sheets": ["مسار التوزيع"]
+    },
+    "مسار علاقات الشركات": {
+      "nameAr": "علاقات الشركات",
+      "name": "Corporate Relations",
+      "color": "#10b981",
+      "sheets": ["مسار علاقات الشركات"]
+    },
+    "مسار الدعم الفني": {
+      "nameAr": "غرفة دعم عمليات بطاقة نسك",
+      "name": "Technical Support",
+      "color": "#3b82f6",
+      "sheets": ["مسار الدعم الفني"]
+    },
+    "مسار التدريب": {
+      "nameAr": "التدريب والتوعية",
+      "name": "Training",
+      "color": "#14b8a6",
+      "sheets": ["مسار التدريب"]
+    },
+    "مسار كاميرات النوارية": {
+      "nameAr": "تشغيل كاميرات مركز التفويج بالنورية",
+      "name": "Nawaria Cameras",
+      "color": "#ef4444",
+      "sheets": ["مسار كاميرات النوارية"]
+    },
+    "مسار البيانات": {
+      "nameAr": "لوحة البيانات والتقارير",
+      "name": "Data & Reports",
+      "color": "#0ea5e9",
+      "sheets": ["مسار البيانات"]
+    }
+  },
+
+  "trackSheetColumns": {
+    "standard": {
+      "trackName": 1,
+      "teamRole": 2,
+      "directManager": 3,
+      "employeeCount": 4,
+      "employeeName": 5,
+      "contractStatus": 6,
+      "jobDescription": 7,
+      "kpi": 8,
+      "deliverableName": 9,
+      "deliverableOutputs": 10,
+      "deliverableIndicators": 11,
+      "penalties": 12,
+      "scopeOfWork": 13
+    },
+    "headerRow": 0,
+    "subHeaderRow": 1,
+    "dataStartRow": 2
+  },
+
+  "mainPlanColumns": {
+    "number": 0,
+    "trackName": 1,
+    "leaderTitle": 2,
+    "leaderName": 3,
+    "subTrack": 4,
+    "teamRole": 5,
+    "directManager": 6,
+    "employeeCount": 7,
+    "employeeName": 8,
+    "contractStatus": 9,
+    "jobDescription": 10,
+    "kpi": 11,
+    "deliverables": 12,
+    "penalties": 13
+  },
+
+  "employeesSheetColumns": {
+    "number": 0,
+    "track": 1,
+    "detail": 2,
+    "tasks": 3,
+    "type": 4,
+    "durationMonths": 5,
+    "quantity": 6
+  },
+
+  "contractsSheetColumns": {
+    "number": 0,
+    "name": 1,
+    "position": 2,
+    "track": 3,
+    "contractType": 4,
+    "months": 5
+  },
+
+  "contractStatusMapping": {
+    "تم التعاقد": "contracted",
+    "لم يتم البدء بالإجراءات": "not_started",
+    "مقابلة وظيفية": "interviewing",
+    "عرض وظيفي": "offer_sent",
+    "يحدد لاحقا": "tbd"
+  },
+
+  "contractTypeMapping": {
+    "موظف شهر": "monthly",
+    "موظفين شهر": "monthly",
+    "متعاقد": "contract",
+    "موسمي": "seasonal",
+    "سنوي": "annual"
+  },
+
+  "trackNameNormalization": {
+    "الاستشاري": "المسار الاستشاري",
+    "التوزيع": "مسار التوزيع",
+    "إدارة المشروع": "إدارة المشروع",
+    "إدارة المشروع ": "إدارة المشروع",
+    "علاقات شركات": "مسار علاقات الشركات",
+    "موظف لدى العميل": "إدارة المشروع",
+    "فريق ادارة المشروع": "إدارة المشروع",
+    "مسار التدريب": "مسار التدريب",
+    "مسار الدعم الفني": "مسار الدعم الفني",
+    "المسار الاستشاري": "المسار الاستشاري",
+    "مسار لوحة البيانات": "مسار البيانات",
+    "مسار علاقات الشركات": "مسار علاقات الشركات",
+    "مسار الطباعة": "مسار الطباعة",
+    "مسار التوزيع": "مسار التوزيع"
+  }
+}

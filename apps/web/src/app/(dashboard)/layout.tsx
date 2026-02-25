@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/stores/auth';
 import Sidebar from '@/components/sidebar';
+import GlobalSearch from '@/components/global-search';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, loading, loadUser } = useAuth();
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     loadUser();
@@ -18,6 +20,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.push('/login');
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   if (loading) {
     return (
@@ -38,6 +51,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className="flex-1 mr-64 p-6 overflow-auto">
         {children}
       </main>
+      <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

@@ -40,6 +40,11 @@ export class UsersController {
     return this.users.resetPassword(id, dto.password);
   }
 
+  @Patch(':id/toggle-lock')
+  toggleLock(@Param('id') id: string) {
+    return this.users.toggleLock(id);
+  }
+
   @Post(':id/permissions')
   setPermissions(@Param('id') id: string, @Body() dto: SetPermissionsDto) {
     return this.users.setPermissions(id, dto.trackId, dto.permissions);

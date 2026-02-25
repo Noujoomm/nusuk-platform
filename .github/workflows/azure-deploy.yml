@@ -1,0 +1,87 @@
+name: Build & Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  API_APP_NAME: nusuk-api
+  WEB_APP_NAME: nusuk-web
+
+jobs:
+  deploy:
+    name: Build Images & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ─── Login to Azure & ACR ───
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Get ACR credentials
+        id: acr
+        run: |
+          ACR_NAME=$(az acr list -g ${{ secrets.AZURE_RESOURCE_GROUP }} --query "[0].name" -o tsv)
+          ACR_SERVER=$(az acr show -n $ACR_NAME --query "loginServer" -o tsv)
+          echo "name=$ACR_NAME" >> $GITHUB_OUTPUT
+          echo "server=$ACR_SERVER" >> $GITHUB_OUTPUT
+
+      - name: Login to ACR
+        run: az acr login --name ${{ steps.acr.outputs.name }}
+
+      # ─── Build & Push API Image ───
+      - name: Build & push API image
+        run: |
+          docker build \
+            -t ${{ steps.acr.outputs.server }}/nusuk-api:${{ github.sha }} \
+            -t ${{ steps.acr.outputs.server }}/nusuk-api:latest \
+            -f apps/api/Dockerfile \
+            apps/api
+          docker push ${{ steps.acr.outputs.server }}/nusuk-api:${{ github.sha }}
+          docker push ${{ steps.acr.outputs.server }}/nusuk-api:latest
+
+      # ─── Build & Push Web Image ───
+      - name: Build & push Web image
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_BASE_URL=https://${{ env.API_APP_NAME }}.azurewebsites.net \
+            --build-arg NEXT_PUBLIC_SOCKET_URL=https://${{ env.API_APP_NAME }}.azurewebsites.net \
+            -t ${{ steps.acr.outputs.server }}/nusuk-web:${{ github.sha }} \
+            -t ${{ steps.acr.outputs.server }}/nusuk-web:latest \
+            -f apps/web/Dockerfile \
+            apps/web
+          docker push ${{ steps.acr.outputs.server }}/nusuk-web:${{ github.sha }}
+          docker push ${{ steps.acr.outputs.server }}/nusuk-web:latest
+
+      # ─── Deploy API Container ───
+      - name: Deploy API
+        run: |
+          az webapp config container set \
+            --name ${{ env.API_APP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --container-image-name ${{ steps.acr.outputs.server }}/nusuk-api:${{ github.sha }} \
+            --container-registry-url https://${{ steps.acr.outputs.server }}
+
+      # ─── Deploy Web Container ───
+      - name: Deploy Web
+        run: |
+          az webapp config container set \
+            --name ${{ env.WEB_APP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --container-image-name ${{ steps.acr.outputs.server }}/nusuk-web:${{ github.sha }} \
+            --container-registry-url https://${{ steps.acr.outputs.server }}
+
+      # ─── Restart Apps ───
+      - name: Restart services
+        run: |
+          az webapp restart --name ${{ env.API_APP_NAME }} --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
+          az webapp restart --name ${{ env.WEB_APP_NAME }} --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }}
+
+      - name: Azure logout
+        run: az logout
+        if: always()

@@ -3,6 +3,19 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma.service';
 import { CreateUserDto, UpdateUserDto } from './users.dto';
 
+const USER_SELECT = {
+  id: true, email: true, name: true, nameAr: true,
+  role: true, isActive: true, createdAt: true,
+  lastLoginAt: true, loginCount: true,
+  failedLoginAttempts: true, isLocked: true, lockedAt: true,
+  trackPermissions: {
+    select: {
+      trackId: true, permissions: true,
+      track: { select: { name: true, nameAr: true } },
+    },
+  },
+};
+
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService) {}
@@ -20,16 +33,7 @@ export class UsersService {
     const [data, total] = await Promise.all([
       this.prisma.user.findMany({
         where,
-        select: {
-          id: true, email: true, name: true, nameAr: true,
-          role: true, isActive: true, createdAt: true,
-          trackPermissions: {
-            select: {
-              trackId: true, permissions: true,
-              track: { select: { name: true, nameAr: true } },
-            },
-          },
-        },
+        select: USER_SELECT,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
@@ -43,16 +47,7 @@ export class UsersService {
   async findById(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
-      select: {
-        id: true, email: true, name: true, nameAr: true,
-        role: true, isActive: true, createdAt: true,
-        trackPermissions: {
-          select: {
-            trackId: true, permissions: true,
-            track: { select: { name: true, nameAr: true } },
-          },
-        },
-      },
+      select: USER_SELECT,
     });
     if (!user) throw new NotFoundException('المستخدم غير موجود');
     return user;
@@ -67,10 +62,7 @@ export class UsersService {
 
     return this.prisma.user.create({
       data: { ...rest, passwordHash, role: dto.role as any },
-      select: {
-        id: true, email: true, name: true, nameAr: true,
-        role: true, isActive: true, createdAt: true,
-      },
+      select: USER_SELECT,
     });
   }
 
@@ -79,10 +71,7 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id },
       data: dto as any,
-      select: {
-        id: true, email: true, name: true, nameAr: true,
-        role: true, isActive: true, createdAt: true,
-      },
+      select: USER_SELECT,
     });
   }
 
@@ -91,6 +80,22 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(password, 12);
     await this.prisma.user.update({ where: { id }, data: { passwordHash } });
     return { message: 'تم تغيير كلمة المرور بنجاح' };
+  }
+
+  async toggleLock(id: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('المستخدم غير موجود');
+
+    const newLocked = !user.isLocked;
+    return this.prisma.user.update({
+      where: { id },
+      data: {
+        isLocked: newLocked,
+        lockedAt: newLocked ? new Date() : null,
+        failedLoginAttempts: newLocked ? user.failedLoginAttempts : 0,
+      },
+      select: USER_SELECT,
+    });
   }
 
   async setPermissions(userId: string, trackId: string, permissions: string[]) {

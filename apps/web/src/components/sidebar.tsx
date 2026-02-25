@@ -8,16 +8,39 @@ import {
   LayoutDashboard,
   GitBranch,
   Users,
-  ClipboardList,
   LogOut,
   Shield,
+  Target,
+  AlertTriangle,
+  FileText,
+  FolderOpen,
+  UserCheck,
+  CheckSquare,
+  Brain,
+  TrendingUp,
+  Activity,
+  Upload,
+  Search,
+  Sparkles,
 } from 'lucide-react';
+import NotificationBell from '@/components/notifications/notification-bell';
 
 const NAV_ITEMS = [
   { href: '/', label: 'لوحة التحكم', icon: LayoutDashboard, roles: ['admin', 'pm', 'track_lead', 'employee', 'hr'] },
   { href: '/tracks', label: 'المسارات', icon: GitBranch, roles: ['admin', 'pm', 'track_lead', 'employee'] },
+  { href: '/kpis', label: 'مؤشرات الأداء', icon: Target, roles: ['admin', 'pm', 'track_lead'] },
+  { href: '/tasks', label: 'المهام', icon: CheckSquare, roles: ['admin', 'pm', 'track_lead', 'employee'] },
+  { href: '/achievements-progress', label: 'التقدم والإنجازات', icon: TrendingUp, roles: ['admin', 'pm', 'track_lead', 'employee'] },
+  { href: '/reports', label: 'التقارير', icon: FileText, roles: ['admin', 'pm', 'track_lead'] },
+  { href: '/ai-reports', label: 'التقارير الذكية', icon: Brain, roles: ['admin', 'pm'] },
+  { href: '/penalties', label: 'الغرامات', icon: AlertTriangle, roles: ['admin', 'pm'] },
+  { href: '/employees', label: 'الموظفون', icon: UserCheck, roles: ['admin', 'pm', 'hr'] },
+  { href: '/files', label: 'الملفات', icon: FolderOpen, roles: ['admin', 'pm', 'track_lead'] },
+  { href: '/search', label: 'البحث الذكي', icon: Search, roles: ['admin', 'pm', 'track_lead', 'employee', 'hr'] },
+  { href: '/ai-analyze', label: 'تحليل الملفات AI', icon: Sparkles, roles: ['admin', 'pm'] },
+  { href: '/import', label: 'استيراد البيانات', icon: Upload, roles: ['admin', 'pm', 'hr'] },
+  { href: '/updates', label: 'التحديثات', icon: Activity, roles: ['admin', 'pm'] },
   { href: '/users', label: 'المستخدمين', icon: Users, roles: ['admin'] },
-  { href: '/audit', label: 'سجل المراجعة', icon: ClipboardList, roles: ['admin', 'pm'] },
 ];
 
 export default function Sidebar() {
@@ -34,14 +57,17 @@ export default function Sidebar() {
     <aside className="fixed right-0 top-0 w-64 h-screen glass border-l border-white/10 flex flex-col z-40">
       {/* Header */}
       <div className="p-5 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-brand-500/20 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-brand-400" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-500/20 flex items-center justify-center">
+              <Shield className="w-5 h-5 text-brand-400" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white">نسك</h1>
+              <p className="text-xs text-gray-500">إدارة المشاريع</p>
+            </div>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-white">نسك</h1>
-            <p className="text-xs text-gray-500">إدارة المشاريع</p>
-          </div>
+          <NotificationBell />
         </div>
       </div>
 

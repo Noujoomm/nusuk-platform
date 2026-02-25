@@ -10,20 +10,47 @@ datasource db {
 // ─── USERS & AUTH ───
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  name           String
-  nameAr         String   @map("name_ar")
-  passwordHash   String   @map("password_hash")
-  role           Role     @default(employee)
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  name                  String
+  nameAr                String    @map("name_ar")
+  passwordHash          String    @map("password_hash")
+  role                  Role      @default(employee)
+  isActive              Boolean   @default(true) @map("is_active")
+  lastLoginAt           DateTime? @map("last_login_at")
+  loginCount            Int       @default(0) @map("login_count")
+  failedLoginAttempts   Int       @default(0) @map("failed_login_attempts")
+  isLocked              Boolean   @default(false) @map("is_locked")
+  lockedAt              DateTime? @map("locked_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
   refreshTokens    RefreshToken[]
   trackPermissions TrackPermission[]
   records          Record[]         @relation("CreatedBy")
   auditLogs        AuditLog[]
+  reports          Report[]
+  uploadedFiles    UploadedFile[]
+
+  // Phase 1: Collaboration
+  assignedSubtasks   Subtask[]              @relation("SubtaskAssignee")
+  createdSubtasks    Subtask[]              @relation("SubtaskCreator")
+  checkedItems       ChecklistItem[]        @relation("ChecklistChecker")
+  comments           Comment[]              @relation("CommentAuthor")
+  notificationsReceived Notification[]      @relation("NotificationRecipient")
+  notificationsSent     Notification[]      @relation("NotificationSender")
+  notificationPreference NotificationPreference?
+
+  // Phase 2: Tasks & AI
+  createdTasks       Task[]                 @relation("TaskCreator")
+  taskAssignments    TaskAssignment[]       @relation("TaskAssignee")
+  taskAssignedBy     TaskAssignment[]       @relation("TaskAssigner")
+  taskFiles          TaskFile[]             @relation("TaskFileUploader")
+  aiReports          AIReport[]             @relation("AIReportAuthor")
+
+  // Phase 3: Updates & Import
+  dailyUpdates       DailyUpdate[]          @relation("DailyUpdateAuthor")
+  importHistory      ImportHistory[]        @relation("ImportHistoryAuthor")
 
   @@map("users")
 }
@@ -61,7 +88,7 @@ model Track {
   color         String   @default("#10B981")
   isActive      Boolean  @default(true) @map("is_active")
   sortOrder     Int      @default(0) @map("sort_order")
-  fieldSchema   Json?    @map("field_schema") // JSON schema for extra fields
+  fieldSchema   Json?    @map("field_schema")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -73,6 +100,13 @@ model Track {
   kpis         TrackKPI[]
   penalties    Penalty[]
   scopes       Scope[]
+  scopeBlocks  ScopeBlock[]
+  reports      Report[]
+  files        UploadedFile[]
+  kpiEntries   KPIEntry[]
+  tasks        Task[]
+  aiReports    AIReport[]
+  dailyUpdates DailyUpdate[]
 
   @@map("tracks")
 }
@@ -81,7 +115,7 @@ model TrackPermission {
   id          String   @id @default(cuid())
   userId      String   @map("user_id")
   trackId     String   @map("track_id")
-  permissions String[] // ['view','edit','create','delete','export']
+  permissions String[]
   createdAt   DateTime @default(now()) @map("created_at")
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -93,45 +127,34 @@ model TrackPermission {
   @@map("track_permissions")
 }
 
-// ─── EMPLOYEES (from Excel) ───
+// ─── EMPLOYEES ───
 
 model Employee {
-  id              String   @id @default(cuid())
-  trackId         String?  @map("track_id")
-  fullName        String   @map("full_name")
-  fullNameAr      String   @map("full_name_ar")
-  position        String?
-  positionAr      String?  @map("position_ar")
-  subTrack        String?  @map("sub_track")
-  directManager   String?  @map("direct_manager")
-  contractStatus  String?  @map("contract_status")
-  jobDescription  String?  @map("job_description")  @db.Text
-  kpiText         String?  @map("kpi_text")          @db.Text
-  createdAt       DateTime @default(now()) @map("created_at")
+  id                String    @id @default(cuid())
+  trackId           String?   @map("track_id")
+  fullName          String    @map("full_name")
+  fullNameAr        String    @map("full_name_ar")
+  position          String?
+  positionAr        String?   @map("position_ar")
+  contractType      String?   @map("contract_type")
+  email             String?
+  phone             String?
+  department        String?
+  status            String    @default("active") // active, inactive, on_leave, terminated
+  hireDate          DateTime? @map("hire_date")
+  contractStartDate DateTime? @map("contract_start_date")
+  contractEndDate   DateTime? @map("contract_end_date")
+  nationalId        String?   @map("national_id")
+  notes             String?   @db.Text
+  isDeleted         Boolean   @default(false) @map("is_deleted")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
 
   track     Track?     @relation(fields: [trackId], references: [id], onDelete: SetNull)
-  contracts Contract[]
 
   @@index([trackId])
+  @@index([status])
   @@map("employees")
-}
-
-model Contract {
-  id            String   @id @default(cuid())
-  employeeId    String?  @map("employee_id")
-  employeeName  String   @map("employee_name")
-  position      String?
-  trackName     String?  @map("track_name")
-  contractType  String?  @map("contract_type")
-  monthlySalary Float?   @map("monthly_salary")
-  months        Float?
-  totalValue    Float?   @map("total_value")
-  createdAt     DateTime @default(now()) @map("created_at")
-
-  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
-
-  @@index([employeeId])
-  @@map("contracts")
 }
 
 model Deliverable {
@@ -142,6 +165,7 @@ model Deliverable {
   outputs             String?  @db.Text
   deliveryIndicators  String?  @map("delivery_indicators") @db.Text
   sortOrder           Int      @default(0)  @map("sort_order")
+  isDeleted           Boolean  @default(false) @map("is_deleted")
   createdAt           DateTime @default(now()) @map("created_at")
 
   track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
@@ -156,6 +180,7 @@ model TrackKPI {
   name      String   @db.Text
   nameAr    String   @map("name_ar") @db.Text
   sortOrder Int      @default(0) @map("sort_order")
+  isDeleted Boolean  @default(false) @map("is_deleted")
   createdAt DateTime @default(now()) @map("created_at")
 
   track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
@@ -169,7 +194,12 @@ model Penalty {
   trackId     String   @map("track_id")
   violation   String   @db.Text
   violationAr String  @map("violation_ar") @db.Text
+  severity    String?  @default("medium")
+  impactScore Float?   @map("impact_score") @default(0)
+  isResolved  Boolean  @default(false) @map("is_resolved")
+  linkedKpiId String?  @map("linked_kpi_id")
   sortOrder   Int      @default(0) @map("sort_order")
+  isDeleted   Boolean  @default(false) @map("is_deleted")
   createdAt   DateTime @default(now()) @map("created_at")
 
   track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
@@ -185,6 +215,7 @@ model Scope {
   titleAr     String   @map("title_ar") @db.Text
   description String?  @db.Text
   sortOrder   Int      @default(0) @map("sort_order")
+  isDeleted   Boolean  @default(false) @map("is_deleted")
   createdAt   DateTime @default(now()) @map("created_at")
 
   track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
@@ -193,17 +224,183 @@ model Scope {
   @@map("scopes")
 }
 
-model FinancialCost {
+// ─── SCOPE BLOCKS (hierarchical scope of work) ───
+
+model ScopeBlock {
   id          String   @id @default(cuid())
-  trackName   String   @map("track_name")
-  itemDetail  String   @map("item_detail")
-  tasks       String?  @db.Text
-  type        String?
-  months      Float?
-  quantity    Float?
+  trackId     String   @map("track_id")
+  code        String
+  title       String   @db.Text
+  content     String?  @db.Text
+  parentId    String?  @map("parent_id")
+  orderIndex  Int      @default(0) @map("order_index")
+  progress    Float    @default(0)
+  status      String   @default("pending")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  track    Track       @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  parent   ScopeBlock? @relation("ScopeBlockHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children ScopeBlock[] @relation("ScopeBlockHierarchy")
+
+  @@unique([trackId, code])
+  @@index([trackId])
+  @@index([parentId])
+  @@map("scope_blocks")
+}
+
+// ─── PROGRESS & ACHIEVEMENTS ───
+
+model ProgressItem {
+  id              String   @id @default(cuid())
+  entityType      String   @map("entity_type")
+  entityId        String   @map("entity_id")
+  progressPercent Float    @default(0) @map("progress_percent")
+  status          String   @default("pending")
+  startDate       DateTime? @map("start_date")
+  endDate         DateTime? @map("end_date")
+  metadata        Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([entityType, entityId])
+  @@index([entityType])
+  @@index([status])
+  @@map("progress_items")
+}
+
+model Achievement {
+  id            String   @id @default(cuid())
+  entityType    String   @map("entity_type")
+  entityId      String   @map("entity_id")
+  title         String
+  titleAr       String   @map("title_ar")
+  description   String?  @db.Text
+  descriptionAr String?  @map("description_ar") @db.Text
+  impactType    String?  @map("impact_type")
+  evidenceLinks Json?    @map("evidence_links") @default("[]")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("achievements")
+}
+
+model ProgressEvent {
+  id          String   @id @default(cuid())
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  eventType   String   @map("event_type")
+  oldValue    Float?   @map("old_value")
+  newValue    Float?   @map("new_value")
+  metadata    Json?
   createdAt   DateTime @default(now()) @map("created_at")
 
-  @@map("financial_costs")
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("progress_events")
+}
+
+// ─── KPI ENTRIES (structured KPI tracking) ───
+
+model KPIEntry {
+  id           String    @id @default(cuid())
+  trackId      String    @map("track_id")
+  name         String
+  nameAr       String    @map("name_ar")
+  category     String    @default("general")
+  targetValue  Float     @default(100) @map("target_value")
+  actualValue  Float     @default(0) @map("actual_value")
+  unit         String    @default("%")
+  status       KPIStatus @default(pending)
+  dueDate      DateTime? @map("due_date")
+  assignedTo   String?   @map("assigned_to")
+  notes        String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([trackId])
+  @@index([status])
+  @@map("kpi_entries")
+}
+
+enum KPIStatus {
+  pending
+  on_track
+  at_risk
+  behind
+  achieved
+  missed
+}
+
+// ─── REPORTS ───
+
+model Report {
+  id             String     @id @default(cuid())
+  trackId        String     @map("track_id")
+  authorId       String     @map("author_id")
+  type           ReportType @default(daily)
+  title          String
+  achievements   String?    @db.Text
+  kpiUpdates     String?    @map("kpi_updates") @db.Text
+  challenges     String?    @db.Text
+  supportNeeded  String?    @map("support_needed") @db.Text
+  notes          String?    @db.Text
+  aiSummary      String?    @map("ai_summary") @db.Text
+  reportDate     DateTime   @map("report_date") @default(now())
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  track  Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [authorId], references: [id])
+
+  @@index([trackId])
+  @@index([authorId])
+  @@index([type])
+  @@index([reportDate])
+  @@map("reports")
+}
+
+enum ReportType {
+  daily
+  weekly
+  monthly
+  annual
+}
+
+// ─── FILE MANAGEMENT ───
+
+model UploadedFile {
+  id          String     @id @default(cuid())
+  trackId     String?    @map("track_id")
+  uploadedById String    @map("uploaded_by_id")
+  fileName    String     @map("file_name")
+  fileSize    Int        @map("file_size")
+  mimeType    String     @map("mime_type")
+  filePath    String     @map("file_path")
+  category    String     @default("general")
+  status      FileStatus @default(uploaded)
+  notes       String?    @db.Text
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  track      Track? @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  uploadedBy User   @relation(fields: [uploadedById], references: [id])
+
+  @@index([trackId])
+  @@index([uploadedById])
+  @@index([category])
+  @@map("uploaded_files")
+}
+
+enum FileStatus {
+  uploaded
+  reviewed
+  approved
+  rejected
 }
 
 // ─── RECORDS (hybrid typed + JSONB) ───
@@ -219,7 +416,7 @@ model Record {
   dueDate     DateTime?    @map("due_date")
   progress    Float        @default(0)
   notes       String?
-  extraFields Json?        @map("extra_fields") // JSONB for custom track fields
+  extraFields Json?        @map("extra_fields")
   version     Int          @default(1)
   createdById String       @map("created_by_id")
   createdAt   DateTime     @default(now()) @map("created_at")
@@ -227,6 +424,10 @@ model Record {
 
   track     Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
   createdBy User  @relation("CreatedBy", fields: [createdById], references: [id])
+
+  // Phase 1: Collaboration
+  subtasks       Subtask[]
+  checklistItems ChecklistItem[]
 
   @@index([trackId])
   @@index([status])
@@ -254,8 +455,8 @@ enum Priority {
 model AuditLog {
   id         String   @id @default(cuid())
   actorId    String?  @map("actor_id")
-  actionType String   @map("action_type") // create, update, delete, login, logout
-  entityType String   @map("entity_type") // record, track, user, etc.
+  actionType String   @map("action_type")
+  entityType String   @map("entity_type")
   entityId   String?  @map("entity_id")
   trackId    String?  @map("track_id")
   beforeData Json?    @map("before_data")
@@ -272,4 +473,309 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ─── DAILY UPDATES ───
+
+model DailyUpdate {
+  id          String   @id @default(cuid())
+  title       String
+  titleAr     String   @map("title_ar")
+  content     String   @db.Text
+  contentAr   String?  @map("content_ar") @db.Text
+  type        String   @default("global") // global, track, department
+  status      String   @default("in_progress") // completed, in_progress, delayed, rejected
+  progress    Int      @default(0) // 0-100
+  trackId     String?  @map("track_id")
+  authorId    String   @map("author_id")
+  pinned      Boolean  @default(false)
+  priority    String   @default("normal") // normal, important, urgent
+  attachments Json?    @default("[]")
+  editHistory Json?    @map("edit_history") @default("[]")
+  isDeleted   Boolean  @default(false) @map("is_deleted")
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  author User   @relation("DailyUpdateAuthor", fields: [authorId], references: [id])
+  track  Track? @relation(fields: [trackId], references: [id], onDelete: SetNull)
+
+  @@index([authorId])
+  @@index([trackId])
+  @@index([type])
+  @@index([status])
+  @@index([pinned])
+  @@index([createdAt])
+  @@map("daily_updates")
+}
+
+// ─── IMPORT HISTORY ───
+
+model ImportHistory {
+  id          String   @id @default(cuid())
+  fileName    String   @map("file_name")
+  fileSize    Int?     @map("file_size")
+  importedBy  String   @map("imported_by")
+  status      String   @default("completed") // completed, failed, rolled_back
+  summary     Json?    // { inserted, updated, skipped, errors }
+  backupPath  String?  @map("backup_path")
+  errorLog    Json?    @map("error_log") @default("[]")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  author User @relation("ImportHistoryAuthor", fields: [importedBy], references: [id])
+
+  @@index([importedBy])
+  @@index([createdAt])
+  @@map("import_history")
+}
+
+// ─── SUBTASKS & CHECKLISTS ───
+
+model Subtask {
+  id          String       @id @default(cuid())
+  recordId    String       @map("record_id")
+  title       String
+  titleAr     String?      @map("title_ar")
+  status      RecordStatus @default(draft)
+  priority    Priority     @default(medium)
+  assigneeId  String?      @map("assignee_id")
+  dueDate     DateTime?    @map("due_date")
+  sortOrder   Int          @default(0) @map("sort_order")
+  createdById String       @map("created_by_id")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  record    Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  assignee  User?  @relation("SubtaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy User   @relation("SubtaskCreator", fields: [createdById], references: [id])
+
+  @@index([recordId])
+  @@index([assigneeId])
+  @@map("subtasks")
+}
+
+model ChecklistItem {
+  id          String    @id @default(cuid())
+  recordId    String    @map("record_id")
+  text        String
+  textAr      String?   @map("text_ar")
+  isChecked   Boolean   @default(false) @map("is_checked")
+  sortOrder   Int       @default(0) @map("sort_order")
+  checkedById String?   @map("checked_by_id")
+  checkedAt   DateTime? @map("checked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  record    Record @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  checkedBy User?  @relation("ChecklistChecker", fields: [checkedById], references: [id], onDelete: SetNull)
+
+  @@index([recordId])
+  @@map("checklist_items")
+}
+
+// ─── COMMENTS ───
+
+model Comment {
+  id          String   @id @default(cuid())
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id")
+  parentId    String?  @map("parent_id")
+  authorId    String   @map("author_id")
+  body        String   @db.Text
+  mentions    String[] @default([])
+  attachments Json?    @default("[]")
+  isEdited    Boolean  @default(false) @map("is_edited")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  author  User      @relation("CommentAuthor", fields: [authorId], references: [id])
+  parent  Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies Comment[] @relation("CommentThread")
+
+  @@index([entityType, entityId])
+  @@index([authorId])
+  @@index([parentId])
+  @@map("comments")
+}
+
+// ─── NOTIFICATIONS ───
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String           @map("user_id")
+  type       NotificationType
+  title      String
+  titleAr    String           @map("title_ar")
+  body       String?          @db.Text
+  bodyAr     String?          @map("body_ar") @db.Text
+  entityType String?          @map("entity_type")
+  entityId   String?          @map("entity_id")
+  trackId    String?          @map("track_id")
+  senderId   String?          @map("sender_id")
+  isRead     Boolean          @default(false) @map("is_read")
+  readAt     DateTime?        @map("read_at")
+  emailSent  Boolean          @default(false) @map("email_sent")
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  user   User  @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  sender User? @relation("NotificationSender", fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id                String  @id @default(cuid())
+  userId            String  @unique @map("user_id")
+  emailEnabled      Boolean @default(true) @map("email_enabled")
+  assignmentAlert   Boolean @default(true) @map("assignment_alert")
+  commentAlert      Boolean @default(true) @map("comment_alert")
+  mentionAlert      Boolean @default(true) @map("mention_alert")
+  deadlineAlert     Boolean @default(true) @map("deadline_alert")
+  statusChangeAlert Boolean @default(true) @map("status_change_alert")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+enum NotificationType {
+  assignment
+  mention
+  comment
+  status_change
+  deadline_approaching
+  deadline_overdue
+  record_created
+  record_updated
+  system
+  task_assigned
+  task_updated
+  task_completed
+  task_overdue
+}
+
+// ─── TASK MANAGEMENT ───
+
+enum TaskStatus {
+  pending
+  in_progress
+  completed
+  delayed
+  cancelled
+}
+
+model Task {
+  id            String     @id @default(cuid())
+  title         String
+  titleAr       String     @map("title_ar")
+  description   String?    @db.Text
+  descriptionAr String?    @map("description_ar") @db.Text
+  status        TaskStatus @default(pending)
+  priority      Priority   @default(medium)
+  trackId       String?    @map("track_id")
+  dueDate       DateTime?  @map("due_date")
+  progress      Float      @default(0)
+  notes         String?    @db.Text
+  createdById   String     @map("created_by_id")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  track       Track?           @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  createdBy   User             @relation("TaskCreator", fields: [createdById], references: [id])
+  assignments TaskAssignment[]
+  files       TaskFile[]
+
+  @@index([trackId])
+  @@index([status])
+  @@index([createdById])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+model TaskAssignment {
+  id         String   @id @default(cuid())
+  taskId     String   @map("task_id")
+  userId     String   @map("user_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  assignedBy String   @map("assigned_by")
+
+  task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user     User @relation("TaskAssignee", fields: [userId], references: [id], onDelete: Cascade)
+  assigner User @relation("TaskAssigner", fields: [assignedBy], references: [id])
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@index([taskId])
+  @@map("task_assignments")
+}
+
+model TaskFile {
+  id           String   @id @default(cuid())
+  taskId       String   @map("task_id")
+  fileName     String   @map("file_name")
+  fileSize     Int      @map("file_size")
+  mimeType     String   @map("mime_type")
+  filePath     String   @map("file_path")
+  uploadedById String   @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation("TaskFileUploader", fields: [uploadedById], references: [id])
+
+  @@index([taskId])
+  @@map("task_files")
+}
+
+// ─── AI & EMBEDDINGS ───
+
+enum AIReportType {
+  daily
+  weekly
+  monthly
+  executive
+  track_performance
+  kpi_analysis
+}
+
+model AIReport {
+  id          String       @id @default(cuid())
+  type        AIReportType
+  title       String
+  titleAr     String       @map("title_ar")
+  trackId     String?      @map("track_id")
+  generatedBy String       @map("generated_by")
+  prompt      String?      @db.Text
+  content     String       @db.Text
+  contentHtml String?      @map("content_html") @db.Text
+  summary     String?      @db.Text
+  parameters  Json?
+  status      String       @default("completed")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  track  Track? @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  author User   @relation("AIReportAuthor", fields: [generatedBy], references: [id])
+
+  @@index([trackId])
+  @@index([generatedBy])
+  @@index([type])
+  @@index([createdAt])
+  @@map("ai_reports")
+}
+
+model Embedding {
+  id         String   @id @default(cuid())
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  content    String   @db.Text
+  trackId    String?  @map("track_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([entityType, entityId])
+  @@index([entityType])
+  @@index([trackId])
+  @@map("embeddings")
 }

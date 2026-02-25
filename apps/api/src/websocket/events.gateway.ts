@@ -12,7 +12,13 @@ import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({
-  cors: { origin: '*', credentials: true },
+  cors: {
+    origin: process.env.CORS_ORIGINS
+      ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
+      : ['http://localhost:3000'],
+    credentials: true,
+  },
+  transports: ['websocket', 'polling'],
   namespace: '/',
 })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -20,7 +26,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server: Server;
 
   private readonly logger = new Logger(EventsGateway.name);
-  private onlineUsers = new Map<string, Set<string>>(); // userId -> Set<socketId>
+  private onlineUsers = new Map<string, Set<string>>();
 
   constructor(private jwt: JwtService) {}
 
@@ -76,6 +82,15 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   emitToTrack(trackId: string, event: string, data: any) {
     this.server.to(`track:${trackId}`).emit(event, data);
+  }
+
+  emitToUser(userId: string, event: string, data: any) {
+    const sockets = this.onlineUsers.get(userId);
+    if (sockets) {
+      sockets.forEach((socketId) => {
+        this.server.to(socketId).emit(event, data);
+      });
+    }
   }
 
   getOnlineCount() {

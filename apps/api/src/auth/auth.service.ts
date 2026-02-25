@@ -4,6 +4,9 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../common/prisma.service';
 
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCK_DURATION_MINUTES = 30;
+
 export interface JwtPayload {
   sub: string; // userId
   email: string;
@@ -25,10 +28,64 @@ export class AuthService {
       where: { email },
       include: { trackPermissions: { include: { track: true } } },
     });
-    if (!user || !user.isActive) throw new UnauthorizedException('بيانات الدخول غير صحيحة');
+    if (!user) throw new UnauthorizedException('بيانات الدخول غير صحيحة');
+
+    // Check if account is locked
+    if (user.isLocked) {
+      const lockExpiry = user.lockedAt
+        ? new Date(user.lockedAt.getTime() + LOCK_DURATION_MINUTES * 60 * 1000)
+        : null;
+
+      if (lockExpiry && lockExpiry > new Date()) {
+        const minutesLeft = Math.ceil((lockExpiry.getTime() - Date.now()) / 60000);
+        throw new UnauthorizedException(
+          `الحساب مقفل بسبب محاولات دخول خاطئة. حاول مرة أخرى بعد ${minutesLeft} دقيقة`
+        );
+      }
+
+      // Lock expired, unlock
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { isLocked: false, failedLoginAttempts: 0, lockedAt: null },
+      });
+    }
+
+    if (!user.isActive) throw new UnauthorizedException('الحساب غير مفعل');
 
     const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException('بيانات الدخول غير صحيحة');
+    if (!valid) {
+      // Track failed attempt
+      const newAttempts = (user.failedLoginAttempts || 0) + 1;
+      const shouldLock = newAttempts >= MAX_FAILED_ATTEMPTS;
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: newAttempts,
+          ...(shouldLock ? { isLocked: true, lockedAt: new Date() } : {}),
+        },
+      });
+
+      if (shouldLock) {
+        throw new UnauthorizedException(
+          `تم قفل الحساب بعد ${MAX_FAILED_ATTEMPTS} محاولات خاطئة. حاول مرة أخرى بعد ${LOCK_DURATION_MINUTES} دقيقة`
+        );
+      }
+
+      throw new UnauthorizedException('بيانات الدخول غير صحيحة');
+    }
+
+    // Successful login: reset failed attempts, update login stats
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        failedLoginAttempts: 0,
+        isLocked: false,
+        lockedAt: null,
+        lastLoginAt: new Date(),
+        loginCount: { increment: 1 },
+      },
+    });
 
     return user;
   }

@@ -89,11 +89,6 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 p-3 rounded-xl bg-white/5 text-xs text-gray-500">
-          <p className="font-medium text-gray-400 mb-1">حسابات تجريبية:</p>
-          <p>admin@nusuk.sa / admin123</p>
-          <p>pm@nusuk.sa / pm123</p>
-        </div>
       </div>
     </div>
   );

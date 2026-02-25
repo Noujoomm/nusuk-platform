@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsInt, IsObject, MinLength } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsInt, IsObject, IsNumber, MinLength } from 'class-validator';
 
 export class CreateTrackDto {
   @IsString()
@@ -58,4 +58,236 @@ export class UpdateTrackDto {
   @IsOptional()
   @IsObject()
   fieldSchema?: any;
+}
+
+// ─── EMPLOYEE DTOs ───
+
+export class CreateEmployeeDto {
+  @IsString()
+  @MinLength(2)
+  fullName: string;
+
+  @IsString()
+  @MinLength(2)
+  fullNameAr: string;
+
+  @IsOptional()
+  @IsString()
+  trackId?: string;
+
+  @IsOptional()
+  @IsString()
+  position?: string;
+
+  @IsOptional()
+  @IsString()
+  positionAr?: string;
+
+  @IsOptional()
+  @IsString()
+  contractType?: string;
+}
+
+export class UpdateEmployeeDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  fullName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  fullNameAr?: string;
+
+  @IsOptional()
+  @IsString()
+  trackId?: string;
+
+  @IsOptional()
+  @IsString()
+  position?: string;
+
+  @IsOptional()
+  @IsString()
+  positionAr?: string;
+
+  @IsOptional()
+  @IsString()
+  contractType?: string;
+}
+
+// ─── DELIVERABLE DTOs ───
+
+export class CreateDeliverableDto {
+  @IsString()
+  trackId: string;
+
+  @IsString()
+  @MinLength(2)
+  name: string;
+
+  @IsString()
+  @MinLength(2)
+  nameAr: string;
+
+  @IsOptional()
+  @IsString()
+  outputs?: string;
+
+  @IsOptional()
+  @IsString()
+  deliveryIndicators?: string;
+}
+
+export class UpdateDeliverableDto {
+  @IsOptional()
+  @IsString()
+  trackId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  nameAr?: string;
+
+  @IsOptional()
+  @IsString()
+  outputs?: string;
+
+  @IsOptional()
+  @IsString()
+  deliveryIndicators?: string;
+}
+
+// ─── SCOPE DTOs ───
+
+export class CreateScopeDto {
+  @IsString()
+  trackId: string;
+
+  @IsString()
+  @MinLength(2)
+  title: string;
+
+  @IsString()
+  @MinLength(2)
+  titleAr: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
+export class UpdateScopeDto {
+  @IsOptional()
+  @IsString()
+  trackId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  titleAr?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
+// ─── TRACK KPI DTOs ───
+
+export class CreateTrackKPIDto {
+  @IsString()
+  trackId: string;
+
+  @IsString()
+  @MinLength(2)
+  name: string;
+
+  @IsString()
+  @MinLength(2)
+  nameAr: string;
+}
+
+export class UpdateTrackKPIDto {
+  @IsOptional()
+  @IsString()
+  trackId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  nameAr?: string;
+
+  @IsOptional()
+  @IsInt()
+  sortOrder?: number;
+}
+
+// ─── PENALTY DTOs ───
+
+export class CreatePenaltyDto {
+  @IsString()
+  trackId: string;
+
+  @IsString()
+  violation: string;
+
+  @IsString()
+  violationAr: string;
+
+  @IsOptional()
+  @IsString()
+  severity?: string;
+
+  @IsOptional()
+  @IsNumber()
+  impactScore?: number;
+
+  @IsOptional()
+  @IsString()
+  linkedKpiId?: string;
+}
+
+export class UpdatePenaltyDto {
+  @IsOptional()
+  @IsString()
+  trackId?: string;
+
+  @IsOptional()
+  @IsString()
+  violation?: string;
+
+  @IsOptional()
+  @IsString()
+  violationAr?: string;
+
+  @IsOptional()
+  @IsString()
+  severity?: string;
+
+  @IsOptional()
+  @IsNumber()
+  impactScore?: number;
+
+  @IsOptional()
+  @IsString()
+  linkedKpiId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isResolved?: boolean;
 }

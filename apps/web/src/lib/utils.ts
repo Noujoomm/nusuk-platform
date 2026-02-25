@@ -60,3 +60,64 @@ export const PRIORITY_COLORS: Record<string, string> = {
   high: 'bg-amber-500/20 text-amber-300',
   critical: 'bg-red-500/20 text-red-300',
 };
+
+export const TASK_STATUS_LABELS: Record<string, string> = {
+  pending: 'قيد الانتظار',
+  in_progress: 'قيد التنفيذ',
+  completed: 'مكتملة',
+  delayed: 'متأخرة',
+  cancelled: 'ملغاة',
+};
+
+export const TASK_STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-gray-500/20 text-gray-300',
+  in_progress: 'bg-amber-500/20 text-amber-300',
+  completed: 'bg-emerald-500/20 text-emerald-300',
+  delayed: 'bg-red-500/20 text-red-300',
+  cancelled: 'bg-zinc-500/20 text-zinc-400',
+};
+
+export const AI_REPORT_TYPE_LABELS: Record<string, string> = {
+  daily: 'تقرير يومي',
+  weekly: 'تقرير أسبوعي',
+  monthly: 'تقرير شهري',
+  executive: 'تقرير تنفيذي',
+  track_performance: 'أداء المسار',
+  kpi_analysis: 'تحليل المؤشرات',
+};
+
+export const SCOPE_STATUS_LABELS: Record<string, string> = {
+  pending: 'قيد الانتظار',
+  in_progress: 'قيد التنفيذ',
+  completed: 'مكتمل',
+  delayed: 'متأخر',
+};
+
+export const SCOPE_STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-gray-500/20 text-gray-300',
+  in_progress: 'bg-amber-500/20 text-amber-300',
+  completed: 'bg-emerald-500/20 text-emerald-300',
+  delayed: 'bg-red-500/20 text-red-300',
+};
+
+export const IMPACT_TYPE_LABELS: Record<string, string> = {
+  high: 'تأثير عالي',
+  medium: 'تأثير متوسط',
+  low: 'تأثير منخفض',
+};
+
+export const CONTRACT_TYPE_LABELS: Record<string, string> = {
+  full_time: 'دوام كامل',
+  part_time: 'دوام جزئي',
+  contract: 'عقد',
+  freelance: 'مستقل',
+  secondment: 'إعارة',
+};
+
+export function formatNumber(n: number) {
+  return new Intl.NumberFormat('ar-SA').format(n);
+}
+
+export function formatPercent(n: number) {
+  return `${Math.round(n)}%`;
+}

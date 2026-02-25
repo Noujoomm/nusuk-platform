@@ -9,6 +9,23 @@ import { TracksModule } from './tracks/tracks.module';
 import { RecordsModule } from './records/records.module';
 import { AuditModule } from './audit/audit.module';
 import { WebsocketModule } from './websocket/websocket.module';
+import { ReportsModule } from './reports/reports.module';
+import { FilesModule } from './files/files.module';
+import { KPIModule } from './kpi-management/kpi.module';
+import { InsightsModule } from './insights/insights.module';
+import { SubtasksModule } from './subtasks/subtasks.module';
+import { CommentsModule } from './comments/comments.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { SearchModule } from './search/search.module';
+import { TasksModule } from './tasks/tasks.module';
+import { OpenAIModule } from './openai/openai.module';
+import { AIReportsModule } from './ai-reports/ai-reports.module';
+import { EmbeddingsModule } from './embeddings/embeddings.module';
+import { AIAnalysisModule } from './ai-analysis/ai-analysis.module';
+import { ScopeBlocksModule } from './scope-blocks/scope-blocks.module';
+import { ProgressModule } from './progress/progress.module';
+import { DailyUpdatesModule } from './daily-updates/daily-updates.module';
+import { ImportsModule } from './imports/imports.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -22,6 +39,23 @@ import { HealthController } from './health.controller';
     RecordsModule,
     AuditModule,
     WebsocketModule,
+    ReportsModule,
+    FilesModule,
+    KPIModule,
+    InsightsModule,
+    SubtasksModule,
+    CommentsModule,
+    NotificationsModule,
+    SearchModule,
+    TasksModule,
+    OpenAIModule,
+    AIReportsModule,
+    EmbeddingsModule,
+    AIAnalysisModule,
+    ScopeBlocksModule,
+    ProgressModule,
+    DailyUpdatesModule,
+    ImportsModule,
   ],
   controllers: [HealthController],
   providers: [
