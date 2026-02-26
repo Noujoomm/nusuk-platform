@@ -107,6 +107,11 @@ export class TasksController {
     });
   }
 
+  @Get('track/:trackId/progress')
+  getTrackProgress(@Param('trackId') trackId: string) {
+    return this.tasks.getTrackProgress(trackId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.tasks.findById(id);
@@ -326,6 +331,7 @@ export class TasksController {
   uploadTaskFile(
     @Param('id') id: string,
     @UpFile() file: Express.Multer.File,
+    @Body('notes') notes: string,
     @CurrentUser() user: any,
   ) {
     return this.tasks.uploadTaskFile(id, {
@@ -333,7 +339,7 @@ export class TasksController {
       fileSize: file.size,
       mimeType: file.mimetype,
       filePath: file.path,
-    }, user.id);
+    }, user.id, file, notes);
   }
 
   @Delete(':id/files/:fileId')

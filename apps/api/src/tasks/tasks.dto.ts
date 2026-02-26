@@ -41,6 +41,12 @@ export class CreateTaskDto {
   @IsString()
   notes?: string;
 
+  @IsOptional()
+  @IsNumber()
+  @Min(0.1, { message: 'الوزن يجب أن يكون أكبر من صفر' })
+  @Max(10, { message: 'الوزن يجب أن لا يتجاوز 10' })
+  weight?: number;
+
   // Polymorphic assignment
   @IsEnum(['TRACK', 'USER', 'HR', 'GLOBAL'], { message: 'نوع التعيين غير صالح' })
   assigneeType: string;
@@ -105,6 +111,12 @@ export class UpdateTaskDto {
   @Min(0)
   @Max(100)
   progress?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.1)
+  @Max(10)
+  weight?: number;
 
   // Polymorphic assignment (optional on update)
   @IsOptional()

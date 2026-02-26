@@ -112,6 +112,10 @@ export default function TrackDetailPage() {
   const [allUsers, setAllUsers] = useState<{ id: string; name: string; nameAr: string }[]>([]);
   const [allTracks, setAllTracks] = useState<{ id: string; nameAr: string; color?: string }[]>([]);
 
+  // Track progress state
+  const [trackProgress, setTrackProgress] = useState<any>(null);
+  const [trackProgressLoading, setTrackProgressLoading] = useState(false);
+
   const canEdit = hasPermission(id, 'edit');
   const canCreate = hasPermission(id, 'create');
   const canDelete = hasPermission(id, 'delete');
@@ -205,7 +209,12 @@ export default function TrackDetailPage() {
   }, [id, taskStatusFilter, taskSearch]);
 
   useEffect(() => {
-    if (activeTab === 'tasks') loadTrackTasks();
+    if (activeTab === 'tasks') {
+      loadTrackTasks();
+      // Load track progress
+      setTrackProgressLoading(true);
+      tasksApi.trackProgress(id).then(({ data }) => setTrackProgress(data)).catch(() => {}).finally(() => setTrackProgressLoading(false));
+    }
   }, [activeTab, loadTrackTasks]);
 
   // Load users + tracks for task modal
@@ -532,6 +541,67 @@ export default function TrackDetailPage() {
               </button>
             )}
           </div>
+
+          {/* Track Progress Dashboard */}
+          {trackProgress && !trackProgressLoading && trackProgress.totalTasks > 0 && (
+            <div className="space-y-3">
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-white/5 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-bold text-white">{trackProgress.totalTasks}</p>
+                  <p className="text-xs text-gray-400">إجمالي المهام</p>
+                </div>
+                <div className="bg-white/5 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-bold text-emerald-400">{Math.round(trackProgress.weightedProgress)}%</p>
+                  <p className="text-xs text-gray-400">التقدم الموزون</p>
+                </div>
+                <div className="bg-white/5 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-bold text-blue-400">{Math.round(trackProgress.simpleProgress)}%</p>
+                  <p className="text-xs text-gray-400">نسبة الإنجاز</p>
+                </div>
+                <div className="bg-white/5 rounded-xl p-3 text-center">
+                  <p className={cn('text-2xl font-bold', trackProgress.overdueTasks > 0 ? 'text-red-400' : 'text-gray-400')}>{trackProgress.overdueTasks}</p>
+                  <p className="text-xs text-gray-400">متأخرة</p>
+                </div>
+              </div>
+
+              {/* Weighted Progress Bar */}
+              <div className="bg-white/5 rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-400">شريط التقدم الموزون</span>
+                  <span className="text-sm font-medium text-white">{Math.round(trackProgress.weightedProgress)}%</span>
+                </div>
+                <div className="h-3 bg-white/10 rounded-full overflow-hidden flex">
+                  {trackProgress.byStatus?.completed > 0 && (
+                    <div className="bg-emerald-500 h-full" style={{ width: `${(trackProgress.byStatus.completed / trackProgress.totalTasks) * 100}%` }} />
+                  )}
+                  {trackProgress.byStatus?.in_progress > 0 && (
+                    <div className="bg-blue-500 h-full" style={{ width: `${(trackProgress.byStatus.in_progress / trackProgress.totalTasks) * 100}%` }} />
+                  )}
+                  {trackProgress.byStatus?.delayed > 0 && (
+                    <div className="bg-amber-500 h-full" style={{ width: `${(trackProgress.byStatus.delayed / trackProgress.totalTasks) * 100}%` }} />
+                  )}
+                  {trackProgress.byStatus?.pending > 0 && (
+                    <div className="bg-gray-500 h-full" style={{ width: `${(trackProgress.byStatus.pending / trackProgress.totalTasks) * 100}%` }} />
+                  )}
+                </div>
+                <div className="flex items-center gap-4 mt-2 flex-wrap">
+                  {trackProgress.byStatus?.completed > 0 && (
+                    <span className="flex items-center gap-1.5 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-emerald-500" />مكتملة: {trackProgress.byStatus.completed}</span>
+                  )}
+                  {trackProgress.byStatus?.in_progress > 0 && (
+                    <span className="flex items-center gap-1.5 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-blue-500" />قيد التنفيذ: {trackProgress.byStatus.in_progress}</span>
+                  )}
+                  {trackProgress.byStatus?.delayed > 0 && (
+                    <span className="flex items-center gap-1.5 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-amber-500" />متأخرة: {trackProgress.byStatus.delayed}</span>
+                  )}
+                  {trackProgress.byStatus?.pending > 0 && (
+                    <span className="flex items-center gap-1.5 text-[10px] text-gray-400"><span className="w-2 h-2 rounded-full bg-gray-500" />معلقة: {trackProgress.byStatus.pending}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Filters */}
           <div className="flex flex-wrap gap-3">

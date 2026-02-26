@@ -3,6 +3,34 @@ import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { EventsGateway } from '../websocket/events.gateway';
 import { CreateTaskDto, UpdateTaskDto, CreateChecklistItemDto, UpdateChecklistItemDto, CreateAdminNoteDto, UpdateAdminNoteDto, CreateTaskUpdateDto } from './tasks.dto';
+import { extname } from 'path';
+
+const ALLOWED_EXTENSIONS = new Set([
+  '.xlsx', '.xls', '.docx', '.doc', '.pptx', '.ppt',
+  '.pdf', '.png', '.jpg', '.jpeg', '.webp',
+  '.txt', '.csv', '.zip',
+]);
+
+const BLOCKED_EXTENSIONS = new Set([
+  '.exe', '.js', '.sh', '.bat', '.dll', '.apk', '.cmd',
+  '.com', '.msi', '.ps1', '.vbs', '.wsf', '.scr', '.pif',
+]);
+
+const ALLOWED_MIMES = new Set([
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'application/vnd.ms-powerpoint',
+  'application/pdf',
+  'image/png', 'image/jpeg', 'image/webp',
+  'text/plain', 'text/csv',
+  'application/zip', 'application/x-zip-compressed',
+  'application/octet-stream',
+]);
+
+const MAX_TASK_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 @Injectable()
 export class TasksService {
@@ -96,6 +124,19 @@ export class TasksService {
         break;
       default:
         throw new BadRequestException('نوع التعيين غير صالح');
+    }
+  }
+
+  private validateFile(file: Express.Multer.File) {
+    const ext = extname(file.originalname).toLowerCase();
+    if (BLOCKED_EXTENSIONS.has(ext)) {
+      throw new BadRequestException(`نوع الملف غير مسموح: ${ext}`);
+    }
+    if (!ALLOWED_EXTENSIONS.has(ext)) {
+      throw new BadRequestException(`نوع الملف غير مدعوم: ${ext}. الأنواع المدعومة: ${[...ALLOWED_EXTENSIONS].join(', ')}`);
+    }
+    if (file.size > MAX_TASK_FILE_SIZE) {
+      throw new BadRequestException(`حجم الملف ${file.originalname} يتجاوز الحد الأقصى (${MAX_TASK_FILE_SIZE / 1024 / 1024} MB)`);
     }
   }
 
@@ -425,6 +466,7 @@ export class TasksService {
     // Auto-set status to completed if progress reaches 100
     if (taskData.progress === 100 && existing.status !== 'completed') {
       (taskData as any).status = 'completed';
+      (taskData as any).completionDate = new Date();
     }
 
     const updateData: any = { ...taskData };
@@ -501,6 +543,10 @@ export class TasksService {
     const data: any = { status };
     if (status === 'completed') {
       data.progress = 100;
+      data.completionDate = new Date();
+    }
+    if (status !== 'completed' && existing.status === 'completed') {
+      data.completionDate = null;
     }
 
     const task = await this.prisma.task.update({
@@ -894,9 +940,17 @@ export class TasksService {
     });
   }
 
-  async uploadTaskFile(taskId: string, fileData: { fileName: string; fileSize: number; mimeType: string; filePath: string }, userId: string) {
+  async uploadTaskFile(
+    taskId: string,
+    fileData: { fileName: string; fileSize: number; mimeType: string; filePath: string },
+    userId: string,
+    rawFile: Express.Multer.File,
+    notes?: string,
+  ) {
     await this.findById(taskId);
-    const file = await this.prisma.taskFile.create({
+    this.validateFile(rawFile);
+
+    const taskFile = await this.prisma.taskFile.create({
       data: {
         taskId,
         fileName: fileData.fileName,
@@ -904,17 +958,75 @@ export class TasksService {
         mimeType: fileData.mimeType,
         filePath: fileData.filePath,
         uploadedById: userId,
+        notes: notes || null,
       },
       include: { uploadedBy: { select: { id: true, name: true, nameAr: true } } },
     });
-    return file;
+
+    await this.writeTaskAudit(taskId, 'FILE_UPLOADED', null, { fileId: taskFile.id, fileName: fileData.fileName }, userId);
+    return taskFile;
   }
 
   async deleteTaskFile(taskId: string, fileId: string, userId: string) {
     const file = await this.prisma.taskFile.findFirst({ where: { id: fileId, taskId } });
     if (!file) throw new NotFoundException('الملف غير موجود');
+
+    // RBAC: admin/pm/track_lead or the original uploader
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const allowedRoles = ['admin', 'pm', 'track_lead'];
+    if (!allowedRoles.includes(user?.role || '') && file.uploadedById !== userId) {
+      throw new ForbiddenException('ليس لديك صلاحية لحذف هذا الملف');
+    }
+
     await this.prisma.taskFile.delete({ where: { id: fileId } });
+    await this.writeTaskAudit(taskId, 'FILE_DELETED', { fileId, fileName: file.fileName }, null, userId);
     return { message: 'تم حذف الملف' };
+  }
+
+  // ─── TRACK PROGRESS ───
+
+  async getTrackProgress(trackId: string) {
+    const where = {
+      isDeleted: false,
+      OR: [
+        { trackId },
+        { assigneeType: 'TRACK' as const, assigneeTrackId: trackId },
+      ],
+    };
+
+    const tasks = await this.prisma.task.findMany({
+      where,
+      select: { id: true, status: true, progress: true, weight: true, dueDate: true, completionDate: true },
+    });
+
+    const total = tasks.length;
+    if (total === 0) {
+      return { totalTasks: 0, weightedProgress: 0, byStatus: {}, overdue: 0, completedCount: 0, completionRate: 0 };
+    }
+
+    const totalWeight = tasks.reduce((sum, t) => sum + (t.weight || 1), 0);
+    const weightedProgress = totalWeight > 0
+      ? Math.round(tasks.reduce((sum, t) => sum + (t.progress * (t.weight || 1)), 0) / totalWeight * 10) / 10
+      : 0;
+
+    const byStatus: Record<string, number> = {};
+    tasks.forEach((t) => { byStatus[t.status] = (byStatus[t.status] || 0) + 1; });
+
+    const now = new Date();
+    const overdue = tasks.filter(
+      (t) => t.dueDate && new Date(t.dueDate) < now && t.status !== 'completed' && t.status !== 'cancelled',
+    ).length;
+
+    const completedCount = byStatus['completed'] || 0;
+
+    return {
+      totalTasks: total,
+      weightedProgress,
+      byStatus,
+      overdue,
+      completedCount,
+      completionRate: Math.round((completedCount / total) * 100),
+    };
   }
 
   private async writeTaskAudit(taskId: string, action: string, before: any, after: any, actorUserId: string) {

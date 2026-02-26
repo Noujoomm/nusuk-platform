@@ -51,6 +51,7 @@ const EMPTY_FORM = {
   priority: 'medium',
   trackId: '',
   dueDate: '',
+  weight: '',
   assigneeIds: [] as string[],
 };
 
@@ -79,6 +80,7 @@ export default function TaskModal({ isOpen, onClose, task, tracks, users, onSucc
           priority: task.priority || 'medium',
           trackId: task.trackId || '',
           dueDate: task.dueDate ? task.dueDate.substring(0, 10) : '',
+          weight: task.weight ? String(task.weight) : '',
           assigneeIds: task.assignments?.map((a) => a.userId || a.user?.id).filter(Boolean) as string[] || [],
         });
         // Load existing checklist
@@ -188,6 +190,7 @@ export default function TaskModal({ isOpen, onClose, task, tracks, users, onSucc
         priority: form.priority,
         dueDate: form.dueDate || undefined,
         trackId: form.trackId || undefined,
+        weight: form.weight ? parseFloat(form.weight) : undefined,
         assigneeType: 'GLOBAL',
         assigneeIds: form.assigneeIds.length > 0 ? form.assigneeIds : undefined,
       };
@@ -339,6 +342,22 @@ export default function TaskModal({ isOpen, onClose, task, tracks, users, onSucc
               onChange={(e) => updateField('dueDate', e.target.value)}
               className="input-field"
             />
+          </div>
+
+          {/* الوزن */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-300">الوزن (اختياري)</label>
+            <input
+              type="number"
+              value={form.weight}
+              onChange={(e) => updateField('weight', e.target.value)}
+              placeholder="1"
+              min="0.1"
+              max="10"
+              step="0.1"
+              className="input-field"
+            />
+            <p className="mt-1 text-[10px] text-gray-500">يؤثر على حساب تقدم المسار (0.1 - 10، الافتراضي: 1)</p>
           </div>
 
           {/* المسؤولون */}

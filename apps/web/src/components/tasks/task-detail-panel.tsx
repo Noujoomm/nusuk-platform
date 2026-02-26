@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
   X, Calendar, Flag, Activity, Users, User, Clock, FileText, ChevronLeft,
   Building2, Globe, History, CheckSquare, MessageSquare, StickyNote, RefreshCw,
-  Plus, Trash2, Loader2, Send, Hash,
+  Plus, Trash2, Loader2, Send, Hash, Paperclip, Upload, Download,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -32,7 +32,7 @@ const STATUS_FLOW: Record<string, string[]> = {
   cancelled: [],
 };
 
-type TabKey = 'details' | 'checklist' | 'updates' | 'notes' | 'comments' | 'audit';
+type TabKey = 'details' | 'checklist' | 'updates' | 'files' | 'notes' | 'comments' | 'audit';
 
 const AUDIT_ACTION_LABELS: Record<string, string> = {
   CREATED: 'إنشاء', UPDATED: 'تحديث', STATUS_CHANGED: 'تغيير الحالة',
@@ -41,6 +41,7 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   CHECKLIST_UPDATED: 'تحديث بند', CHECKLIST_DELETED: 'حذف بند',
   ADMIN_NOTE_ADDED: 'ملاحظة إدارية', ADMIN_NOTE_UPDATED: 'تحديث ملاحظة',
   ADMIN_NOTE_DELETED: 'حذف ملاحظة', UPDATE_ADDED: 'تحديث يومي',
+  FILE_UPLOADED: 'رفع ملف', FILE_DELETED: 'حذف ملف',
 };
 
 const ASSIGNEE_TYPE_ICONS: Record<string, typeof Users> = {
@@ -72,6 +73,12 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
   const [newUpdate, setNewUpdate] = useState('');
   const [addingUpdate, setAddingUpdate] = useState(false);
 
+  // Files state
+  const [taskFiles, setTaskFiles] = useState(initialTask.files || []);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [fileNotes, setFileNotes] = useState('');
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+
   // Load full task details on mount
   useEffect(() => {
     const loadDetail = async () => {
@@ -80,6 +87,7 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
         setTask(data);
         setChecklistItems(data.checklist || []);
         setTaskUpdates(data.taskUpdates || []);
+        setTaskFiles(data.files || []);
         setProgress(data.progress ?? 0);
       } catch {
         // fallback to initial data
@@ -199,6 +207,45 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
     finally { setAddingUpdate(false); }
   };
 
+  // ── File handlers ──
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingFile(true);
+    try {
+      const { data } = await tasksApi.uploadTaskFile(task.id, file, fileNotes || undefined);
+      setTaskFiles((prev: any[]) => [data, ...prev]);
+      setFileNotes('');
+      toast.success('تم رفع الملف');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل رفع الملف');
+    } finally {
+      setUploadingFile(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDeleteFile = async (fileId: string) => {
+    setDeletingFileId(fileId);
+    try {
+      await tasksApi.deleteTaskFile(task.id, fileId);
+      setTaskFiles((prev: any[]) => prev.filter((f: any) => f.id !== fileId));
+      toast.success('تم حذف الملف');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'فشل حذف الملف');
+    } finally {
+      setDeletingFileId(null);
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const canDeleteFile = (file: any) => isAdminOrPm || isTrackLead || file.uploadedById === user?.id;
+
   let assigneeDisplay = '';
   if (task.assigneeType === 'TRACK' && task.assigneeTrack) assigneeDisplay = task.assigneeTrack.nameAr;
   else if (task.assigneeType === 'USER' && task.assigneeUser) assigneeDisplay = task.assigneeUser.nameAr || task.assigneeUser.name;
@@ -209,6 +256,7 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
     { key: 'details', label: 'التفاصيل', icon: Activity },
     { key: 'checklist', label: 'القائمة', icon: CheckSquare, count: checklistItems.length },
     { key: 'updates', label: 'التحديثات', icon: RefreshCw, count: taskUpdates.length },
+    { key: 'files', label: 'المرفقات', icon: Paperclip, count: taskFiles.length },
     ...(isAdminOrPm ? [{ key: 'notes' as TabKey, label: 'ملاحظات', icon: StickyNote, count: task._count?.adminNotes }] : []),
     { key: 'comments', label: 'التعليقات', icon: MessageSquare },
     { key: 'audit', label: 'السجل', icon: History },
@@ -420,6 +468,66 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
                       <span className="text-[10px] text-gray-500" dir="ltr">{formatDateTime(upd.createdAt)}</span>
                     </div>
                     <p className="text-sm text-gray-300 whitespace-pre-wrap">{upd.content}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* ── Files Tab ── */}
+          {activeTab === 'files' && (
+            <div className="space-y-3">
+              {/* Upload area */}
+              <div className="bg-white/5 rounded-xl p-3 space-y-2">
+                <input type="text" value={fileNotes} onChange={(e) => setFileNotes(e.target.value)}
+                  placeholder="ملاحظات على الملف (اختياري)..." className="input-field w-full text-sm" />
+                <label className="flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/10 p-4 cursor-pointer hover:border-brand-500/40 hover:bg-brand-500/5 transition-colors">
+                  {uploadingFile ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-brand-400" />
+                  ) : (
+                    <>
+                      <Upload className="h-5 w-5 text-gray-400" />
+                      <span className="text-sm text-gray-400">اختر ملفًا للرفع</span>
+                    </>
+                  )}
+                  <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploadingFile} />
+                </label>
+                <p className="text-[10px] text-gray-500">الحد الأقصى 50MB — PDF, Office, صور, CSV, ZIP</p>
+              </div>
+
+              {/* Files list */}
+              {taskFiles.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Paperclip className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">لا توجد مرفقات</p>
+                </div>
+              ) : (
+                taskFiles.map((file: any) => (
+                  <div key={file.id} className="bg-white/5 rounded-xl p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white truncate">{file.fileName}</p>
+                        <div className="flex items-center gap-3 mt-1 text-[10px] text-gray-500">
+                          <span>{formatFileSize(file.fileSize)}</span>
+                          <span>{file.mimeType?.split('/').pop()}</span>
+                          <span dir="ltr">{formatDateTime(file.createdAt)}</span>
+                        </div>
+                        {file.uploadedBy && (
+                          <p className="text-[10px] text-gray-400 mt-0.5">رفع بواسطة: {file.uploadedBy.nameAr || file.uploadedBy.name}</p>
+                        )}
+                        {file.notes && (
+                          <p className="text-xs text-gray-400 mt-1 bg-white/5 rounded-lg px-2 py-1">{file.notes}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {canDeleteFile(file) && (
+                          <button onClick={() => handleDeleteFile(file.id)} disabled={deletingFileId === file.id}
+                            className="p-1.5 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-300 transition-colors disabled:opacity-50">
+                            {deletingFileId === file.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ))
               )}

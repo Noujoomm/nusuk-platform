@@ -731,6 +731,8 @@ model Task {
   scopeBlockId  String?      @map("scope_block_id")
   dueDate       DateTime?    @map("due_date")
   progress      Float        @default(0)
+  weight        Float        @default(1)
+  completionDate DateTime?   @map("completion_date")
   notes         String?      @db.Text
   createdById   String       @map("created_by_id")
   isDeleted     Boolean      @default(false) @map("is_deleted")
@@ -810,6 +812,7 @@ model TaskFile {
   mimeType     String   @map("mime_type")
   filePath     String   @map("file_path")
   uploadedById String   @map("uploaded_by_id")
+  notes        String?  @db.Text
   createdAt    DateTime @default(now()) @map("created_at")
 
   task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)

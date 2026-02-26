@@ -15,6 +15,8 @@ export interface Task {
   scopeBlockId?: string;
   dueDate?: string;
   progress: number;
+  weight?: number;
+  completionDate?: string;
   notes?: string;
   createdById: string;
   createdAt: string;
@@ -36,7 +38,17 @@ export interface Task {
     userId: string;
     user: { id: string; name: string; nameAr: string };
   }>;
-  files?: any[];
+  files?: Array<{
+    id: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+    filePath: string;
+    notes?: string;
+    uploadedById: string;
+    uploadedBy?: { id: string; name: string; nameAr: string };
+    createdAt: string;
+  }>;
   checklist?: Array<{
     id: string;
     title: string;
