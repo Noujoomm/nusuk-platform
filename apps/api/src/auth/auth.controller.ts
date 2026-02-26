@@ -14,6 +14,11 @@ export class AuthController {
     private audit: AuditService,
   ) {}
 
+  @Get('public-tracks')
+  async getPublicTracks() {
+    return this.auth.getPublicTracks();
+  }
+
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async register(@Body() dto: RegisterDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {

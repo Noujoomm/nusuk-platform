@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsString, MinLength, IsOptional, IsIn } from 'class-validator';
 
 export class LoginDto {
   @IsEmail({}, { message: 'البريد الإلكتروني غير صالح' })
@@ -30,4 +30,10 @@ export class RegisterDto {
   @IsString()
   @MinLength(2, { message: 'الاسم بالعربي يجب أن يكون حرفين على الأقل' })
   nameAr: string;
+
+  @IsString({ message: 'يجب اختيار المسار' })
+  trackId: string;
+
+  @IsIn(['employee', 'track_lead', 'hr'], { message: 'الدور غير صالح' })
+  role: string;
 }

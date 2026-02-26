@@ -72,11 +72,12 @@ export default api;
 export const authApi = {
   login: (email: string, password: string) =>
     api.post('/auth/login', { email, password }),
-  register: (data: { email: string; password: string; name: string; nameAr: string }) =>
+  register: (data: { email: string; password: string; name: string; nameAr: string; trackId: string; role: string }) =>
     api.post('/auth/register', data),
   refresh: () => api.post('/auth/refresh'),
   logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me'),
+  getPublicTracks: () => api.get('/auth/public-tracks'),
 };
 
 // ─── Users ───

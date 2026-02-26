@@ -90,35 +90,71 @@ export class AuthService {
     return user;
   }
 
-  async register(dto: { email: string; password: string; name: string; nameAr: string }) {
+  async getPublicTracks() {
+    return this.prisma.track.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, nameAr: true },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async register(dto: { email: string; password: string; name: string; nameAr: string; trackId: string; role: string }) {
+    const ALLOWED_ROLES = ['employee', 'track_lead', 'hr'];
+    if (!ALLOWED_ROLES.includes(dto.role)) {
+      throw new ConflictException('الدور غير مسموح به للتسجيل الذاتي');
+    }
+
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw new ConflictException('البريد الإلكتروني مستخدم بالفعل');
 
+    const track = await this.prisma.track.findUnique({ where: { id: dto.trackId } });
+    if (!track || !track.isActive) {
+      throw new ConflictException('المسار غير موجود أو غير فعال');
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, 12);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email,
-        name: dto.name,
-        nameAr: dto.nameAr,
-        passwordHash,
-        role: 'employee',
-        isActive: true,
-      },
-      include: { trackPermissions: { include: { track: true } } },
+    const defaultPermissions = dto.role === 'track_lead'
+      ? ['view', 'edit', 'create']
+      : ['view'];
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          email: dto.email,
+          name: dto.name,
+          nameAr: dto.nameAr,
+          passwordHash,
+          role: dto.role as any,
+          isActive: true,
+        },
+      });
+
+      await tx.trackPermission.create({
+        data: {
+          userId: newUser.id,
+          trackId: dto.trackId,
+          permissions: defaultPermissions,
+        },
+      });
+
+      return tx.user.findUnique({
+        where: { id: newUser.id },
+        include: { trackPermissions: { include: { track: true } } },
+      });
     });
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user!.id, user!.email, user!.role);
 
     await this.prisma.refreshToken.create({
       data: {
         token: tokens.refreshToken,
-        userId: user.id,
+        userId: user!.id,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
     });
 
-    this.logger.log(`New user registered: ${user.email}`);
+    this.logger.log(`New user registered: ${user!.email} [${dto.role}] on track ${track.name}`);
     return { ...tokens, user: this.sanitizeUser(user) };
   }
 

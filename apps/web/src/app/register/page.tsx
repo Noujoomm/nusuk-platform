@@ -1,11 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/stores/auth';
+import { authApi } from '@/lib/api';
 import { UserPlus, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+interface Track {
+  id: string;
+  name: string;
+  nameAr: string;
+}
+
+const ROLE_OPTIONS = [
+  { value: 'employee', label: 'موظف' },
+  { value: 'track_lead', label: 'قائد مسار' },
+  { value: 'hr', label: 'الموارد البشرية' },
+];
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -16,7 +29,16 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [trackId, setTrackId] = useState('');
+  const [role, setRole] = useState('employee');
+  const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    authApi.getPublicTracks()
+      .then(({ data }) => setTracks(data))
+      .catch(() => toast.error('فشل تحميل المسارات'));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,9 +48,14 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!trackId) {
+      toast.error('يجب اختيار المسار');
+      return;
+    }
+
     setLoading(true);
     try {
-      await register({ email, password, name, nameAr });
+      await register({ email, password, name, nameAr, trackId, role });
       toast.success('تم إنشاء الحساب بنجاح');
       router.push('/');
     } catch (err: any) {
@@ -92,6 +119,39 @@ export default function RegisterPage() {
               required
               dir="ltr"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1.5">المسار</label>
+            <select
+              value={trackId}
+              onChange={(e) => setTrackId(e.target.value)}
+              className="input-field"
+              required
+            >
+              <option value="">اختر المسار...</option>
+              {tracks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nameAr}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1.5">المنصب</label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="input-field"
+              required
+            >
+              {ROLE_OPTIONS.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
