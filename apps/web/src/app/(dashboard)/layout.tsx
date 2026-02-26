@@ -12,7 +12,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
-    loadUser();
+    const timeout = setTimeout(() => {
+      useAuth.setState({ loading: false });
+    }, 10000);
+    loadUser().finally(() => clearTimeout(timeout));
   }, [loadUser]);
 
   useEffect(() => {

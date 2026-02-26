@@ -22,7 +22,10 @@ export default function LoginPage() {
       await login(email, password);
       router.push('/');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'فشل تسجيل الدخول');
+      const message = err.code === 'ECONNABORTED'
+        ? 'انتهت مهلة الاتصال - يرجى المحاولة مرة أخرى'
+        : err.response?.data?.message || 'فشل تسجيل الدخول - تأكد من تشغيل الخادم';
+      toast.error(message);
     } finally {
       setLoading(false);
     }

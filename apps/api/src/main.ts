@@ -26,7 +26,7 @@ async function bootstrap() {
     logger: ['log', 'error', 'warn', 'debug'],
   });
   const config = app.get(ConfigService);
-  const port = parseInt(process.env.PORT || config.get<string>('API_PORT', '4000'), 10);
+  const port = parseInt(config.get<string>('API_PORT', '4000'), 10);
   const origins = config.get<string>('CORS_ORIGINS', 'http://localhost:3000');
   const isProduction = config.get<string>('NODE_ENV') === 'production';
 
