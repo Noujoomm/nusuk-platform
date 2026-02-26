@@ -16,28 +16,40 @@ export class TasksController {
     private audit: AuditService,
   ) {}
 
+  /**
+   * GET /tasks - Returns tasks visible to the current user.
+   * Admin/PM sees all. Others see filtered by assignment rules.
+   * Supports tab query: my, track, hr, all
+   */
   @Get()
-  @UseGuards(RolesGuard)
-  @Roles('admin', 'pm')
   findAll(
+    @CurrentUser() user: any,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
     @Query('status') status?: string,
     @Query('priority') priority?: string,
     @Query('trackId') trackId?: string,
+    @Query('assigneeType') assigneeType?: string,
     @Query('assigneeId') assigneeId?: string,
     @Query('search') search?: string,
     @Query('overdue') overdue?: string,
+    @Query('dueDateFrom') dueDateFrom?: string,
+    @Query('dueDateTo') dueDateTo?: string,
+    @Query('tab') tab?: string,
   ) {
-    return this.tasks.findAll({
+    return this.tasks.findVisible(user, {
       page: page ? +page : undefined,
       pageSize: pageSize ? +pageSize : undefined,
       status,
       priority,
       trackId,
+      assigneeType,
       assigneeId,
       search,
       overdue: overdue === 'true',
+      dueDateFrom,
+      dueDateTo,
+      tab,
     });
   }
 
@@ -79,6 +91,18 @@ export class TasksController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.tasks.findById(id);
+  }
+
+  @Get(':id/audit')
+  getTaskAudit(
+    @Param('id') id: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.tasks.getTaskAuditLog(id, {
+      page: page ? +page : undefined,
+      pageSize: pageSize ? +pageSize : undefined,
+    });
   }
 
   @Post()

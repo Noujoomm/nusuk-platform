@@ -77,6 +77,20 @@ export const TASK_STATUS_COLORS: Record<string, string> = {
   cancelled: 'bg-zinc-500/20 text-zinc-400',
 };
 
+export const ASSIGNEE_TYPE_LABELS: Record<string, string> = {
+  TRACK: 'مسار',
+  USER: 'موظف',
+  HR: 'الموارد البشرية',
+  GLOBAL: 'عام',
+};
+
+export const ASSIGNEE_TYPE_COLORS: Record<string, string> = {
+  TRACK: 'bg-indigo-500/20 text-indigo-300',
+  USER: 'bg-cyan-500/20 text-cyan-300',
+  HR: 'bg-purple-500/20 text-purple-300',
+  GLOBAL: 'bg-teal-500/20 text-teal-300',
+};
+
 export const AI_REPORT_TYPE_LABELS: Record<string, string> = {
   daily: 'تقرير يومي',
   weekly: 'تقرير أسبوعي',

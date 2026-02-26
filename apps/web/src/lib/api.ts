@@ -319,6 +319,7 @@ export const tasksApi = {
   updateStatus: (id: string, status: string) => api.patch(`/tasks/${id}/status`, { status }),
   assign: (id: string, userIds: string[]) => api.post(`/tasks/${id}/assign`, { userIds }),
   delete: (id: string) => api.delete(`/tasks/${id}`),
+  auditLog: (id: string, params?: any) => api.get(`/tasks/${id}/audit`, { params }),
 };
 
 // ─── AI ───

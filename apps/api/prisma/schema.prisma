@@ -43,9 +43,11 @@ model User {
 
   // Phase 2: Tasks & AI
   createdTasks       Task[]                 @relation("TaskCreator")
+  assignedTasks      Task[]                 @relation("TaskAssigneeUser")
   taskAssignments    TaskAssignment[]       @relation("TaskAssignee")
   taskAssignedBy     TaskAssignment[]       @relation("TaskAssigner")
   taskFiles          TaskFile[]             @relation("TaskFileUploader")
+  taskAuditLogs      TaskAuditLog[]         @relation("TaskAuditActor")
   aiReports          AIReport[]             @relation("AIReportAuthor")
 
   // Phase 3: Updates & Import
@@ -107,6 +109,7 @@ model Track {
   files        UploadedFile[]
   kpiEntries   KPIEntry[]
   tasks        Task[]
+  assignedTasks Task[]              @relation("TaskAssigneeTrack")
   aiReports    AIReport[]
   dailyUpdates DailyUpdate[]
 
@@ -705,32 +708,71 @@ enum TaskStatus {
   cancelled
 }
 
-model Task {
-  id            String     @id @default(cuid())
-  title         String
-  titleAr       String     @map("title_ar")
-  description   String?    @db.Text
-  descriptionAr String?    @map("description_ar") @db.Text
-  status        TaskStatus @default(pending)
-  priority      Priority   @default(medium)
-  trackId       String?    @map("track_id")
-  dueDate       DateTime?  @map("due_date")
-  progress      Float      @default(0)
-  notes         String?    @db.Text
-  createdById   String     @map("created_by_id")
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
+enum AssigneeType {
+  TRACK
+  USER
+  HR
+  GLOBAL
+}
 
-  track       Track?           @relation(fields: [trackId], references: [id], onDelete: SetNull)
-  createdBy   User             @relation("TaskCreator", fields: [createdById], references: [id])
-  assignments TaskAssignment[]
-  files       TaskFile[]
+model Task {
+  id            String       @id @default(cuid())
+  title         String
+  titleAr       String       @map("title_ar")
+  description   String?      @db.Text
+  descriptionAr String?      @map("description_ar") @db.Text
+  status        TaskStatus   @default(pending)
+  priority      Priority     @default(medium)
+  trackId       String?      @map("track_id")
+  dueDate       DateTime?    @map("due_date")
+  progress      Float        @default(0)
+  notes         String?      @db.Text
+  createdById   String       @map("created_by_id")
+  isDeleted     Boolean      @default(false) @map("is_deleted")
+  deletedAt     DateTime?    @map("deleted_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  // Polymorphic assignment
+  assigneeType    AssigneeType @default(GLOBAL) @map("assignee_type")
+  assigneeTrackId String?      @map("assignee_track_id")
+  assigneeUserId  String?      @map("assignee_user_id")
+
+  track         Track?           @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  createdBy     User             @relation("TaskCreator", fields: [createdById], references: [id])
+  assigneeTrack Track?           @relation("TaskAssigneeTrack", fields: [assigneeTrackId], references: [id], onDelete: SetNull)
+  assigneeUser  User?            @relation("TaskAssigneeUser", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  assignments   TaskAssignment[]
+  files         TaskFile[]
+  auditLogs     TaskAuditLog[]
 
   @@index([trackId])
   @@index([status])
   @@index([createdById])
   @@index([dueDate])
+  @@index([assigneeType])
+  @@index([assigneeTrackId])
+  @@index([assigneeUserId])
+  @@index([isDeleted])
   @@map("tasks")
+}
+
+model TaskAuditLog {
+  id          String   @id @default(cuid())
+  taskId      String   @map("task_id")
+  action      String   // CREATED, UPDATED, STATUS_CHANGED, COMMENT_ADDED, REASSIGNED, DELETED
+  beforeJson  Json?    @map("before_json")
+  afterJson   Json?    @map("after_json")
+  actorUserId String   @map("actor_user_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  task  Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actor User @relation("TaskAuditActor", fields: [actorUserId], references: [id])
+
+  @@index([taskId])
+  @@index([actorUserId])
+  @@index([createdAt])
+  @@map("task_audit_logs")
 }
 
 model TaskAssignment {

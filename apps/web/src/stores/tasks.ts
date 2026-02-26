@@ -18,14 +18,32 @@ export interface Task {
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  isDeleted?: boolean;
+
+  // Polymorphic assignment
+  assigneeType: 'TRACK' | 'USER' | 'HR' | 'GLOBAL';
+  assigneeTrackId?: string;
+  assigneeUserId?: string;
+
   track?: { id: string; nameAr: string; color: string };
   createdBy?: { id: string; name: string; nameAr: string };
+  assigneeTrack?: { id: string; nameAr: string; color: string };
+  assigneeUser?: { id: string; name: string; nameAr: string };
   assignments?: Array<{
     id: string;
     userId: string;
     user: { id: string; name: string; nameAr: string };
   }>;
   files?: any[];
+  auditLogs?: Array<{
+    id: string;
+    action: string;
+    beforeJson?: any;
+    afterJson?: any;
+    actorUserId: string;
+    actor?: { id: string; name: string; nameAr: string };
+    createdAt: string;
+  }>;
 }
 
 interface TasksState {

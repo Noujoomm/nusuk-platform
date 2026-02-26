@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsArray, IsDateString, Min, Max, MinLength } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNumber, IsArray, IsDateString, Min, Max, MinLength, ValidateIf } from 'class-validator';
 
 export class CreateTaskDto {
   @IsString()
@@ -37,6 +37,19 @@ export class CreateTaskDto {
   @IsString()
   notes?: string;
 
+  // Polymorphic assignment
+  @IsEnum(['TRACK', 'USER', 'HR', 'GLOBAL'], { message: 'نوع التعيين غير صالح' })
+  assigneeType: string;
+
+  @ValidateIf((o) => o.assigneeType === 'TRACK')
+  @IsString({ message: 'معرف المسار مطلوب عند التعيين لمسار' })
+  assigneeTrackId?: string;
+
+  @ValidateIf((o) => o.assigneeType === 'USER')
+  @IsString({ message: 'معرف المستخدم مطلوب عند التعيين لموظف' })
+  assigneeUserId?: string;
+
+  // Legacy: keep for backward compat but optional
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -85,6 +98,19 @@ export class UpdateTaskDto {
   @Min(0)
   @Max(100)
   progress?: number;
+
+  // Polymorphic assignment (optional on update)
+  @IsOptional()
+  @IsEnum(['TRACK', 'USER', 'HR', 'GLOBAL'], { message: 'نوع التعيين غير صالح' })
+  assigneeType?: string;
+
+  @IsOptional()
+  @IsString()
+  assigneeTrackId?: string;
+
+  @IsOptional()
+  @IsString()
+  assigneeUserId?: string;
 
   @IsOptional()
   @IsArray()

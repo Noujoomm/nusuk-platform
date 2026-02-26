@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { EventsGateway } from '../websocket/events.gateway';
@@ -15,6 +15,8 @@ export class TasksService {
   private readonly listIncludes = {
     track: { select: { id: true, nameAr: true, color: true } },
     createdBy: { select: { id: true, name: true, nameAr: true } },
+    assigneeTrack: { select: { id: true, nameAr: true, color: true } },
+    assigneeUser: { select: { id: true, name: true, nameAr: true } },
     assignments: {
       include: {
         user: { select: { id: true, name: true, nameAr: true } },
@@ -25,6 +27,8 @@ export class TasksService {
   private readonly detailIncludes = {
     track: { select: { id: true, nameAr: true, color: true } },
     createdBy: { select: { id: true, name: true, nameAr: true } },
+    assigneeTrack: { select: { id: true, nameAr: true, color: true } },
+    assigneeUser: { select: { id: true, name: true, nameAr: true } },
     assignments: {
       include: {
         user: { select: { id: true, name: true, nameAr: true } },
@@ -35,8 +39,169 @@ export class TasksService {
         uploadedBy: { select: { id: true, name: true, nameAr: true } },
       },
     },
+    auditLogs: {
+      include: {
+        actor: { select: { id: true, name: true, nameAr: true } },
+      },
+      orderBy: { createdAt: 'desc' as const },
+      take: 20,
+    },
   };
 
+  /**
+   * Validate polymorphic assignment rules:
+   * - TRACK => assigneeTrackId required, assigneeUserId null
+   * - USER  => assigneeUserId required, assigneeTrackId null
+   * - HR    => both null
+   * - GLOBAL => both null
+   */
+  private validateAssignment(assigneeType: string, assigneeTrackId?: string, assigneeUserId?: string) {
+    switch (assigneeType) {
+      case 'TRACK':
+        if (!assigneeTrackId) throw new BadRequestException('معرف المسار مطلوب عند التعيين لمسار');
+        if (assigneeUserId) throw new BadRequestException('لا يمكن تحديد موظف عند التعيين لمسار');
+        break;
+      case 'USER':
+        if (!assigneeUserId) throw new BadRequestException('معرف الموظف مطلوب عند التعيين لموظف');
+        if (assigneeTrackId) throw new BadRequestException('لا يمكن تحديد مسار عند التعيين لموظف');
+        break;
+      case 'HR':
+      case 'GLOBAL':
+        if (assigneeTrackId) throw new BadRequestException('لا يمكن تحديد مسار لهذا النوع من التعيين');
+        if (assigneeUserId) throw new BadRequestException('لا يمكن تحديد موظف لهذا النوع من التعيين');
+        break;
+      default:
+        throw new BadRequestException('نوع التعيين غير صالح');
+    }
+  }
+
+  /**
+   * Build visibility filter based on user role and track permissions.
+   * - Admin/PM: see all tasks
+   * - HR: GLOBAL + HR + own USER tasks + own track tasks
+   * - Regular users: GLOBAL + own USER tasks + tasks assigned to their tracks
+   */
+  private buildVisibilityFilter(user: { id: string; role: string; trackPermissions?: Array<{ trackId: string }> }) {
+    if (user.role === 'admin' || user.role === 'pm') {
+      return { isDeleted: false };
+    }
+
+    const userTrackIds = (user.trackPermissions || []).map((tp) => tp.trackId);
+
+    const orConditions: any[] = [
+      // GLOBAL tasks visible to everyone
+      { assigneeType: 'GLOBAL' },
+      // Tasks assigned directly to this user
+      { assigneeType: 'USER', assigneeUserId: user.id },
+      // Tasks created by this user
+      { createdById: user.id },
+    ];
+
+    // Tasks assigned to user's tracks
+    if (userTrackIds.length > 0) {
+      orConditions.push({ assigneeType: 'TRACK', assigneeTrackId: { in: userTrackIds } });
+    }
+
+    // HR users can also see HR-assigned tasks
+    if (user.role === 'hr') {
+      orConditions.push({ assigneeType: 'HR' });
+    }
+
+    return {
+      isDeleted: false,
+      OR: orConditions,
+    };
+  }
+
+  /**
+   * GET /tasks - returns tasks visible to the current user with filters.
+   */
+  async findVisible(user: { id: string; role: string; trackPermissions?: Array<{ trackId: string }> }, params: {
+    page?: number;
+    pageSize?: number;
+    status?: string;
+    priority?: string;
+    trackId?: string;
+    assigneeType?: string;
+    assigneeId?: string;
+    search?: string;
+    overdue?: boolean;
+    dueDateFrom?: string;
+    dueDateTo?: string;
+    tab?: string; // 'my' | 'track' | 'hr' | 'all'
+  }) {
+    const { page = 1, pageSize = 25, status, priority, trackId, assigneeType, assigneeId, search, overdue, dueDateFrom, dueDateTo, tab } = params;
+
+    const baseWhere = this.buildVisibilityFilter(user);
+    const where: any = { ...baseWhere };
+
+    // Tab-specific filtering
+    if (tab === 'my') {
+      where.OR = [
+        { assigneeType: 'USER', assigneeUserId: user.id },
+        { assignments: { some: { userId: user.id } } },
+      ];
+    } else if (tab === 'track') {
+      const userTrackIds = (user.trackPermissions || []).map((tp) => tp.trackId);
+      if (userTrackIds.length > 0) {
+        where.assigneeType = 'TRACK';
+        where.assigneeTrackId = { in: userTrackIds };
+      } else {
+        // User has no tracks, return empty
+        return { data: [], total: 0, page, pageSize, totalPages: 0 };
+      }
+    } else if (tab === 'hr') {
+      where.assigneeType = 'HR';
+    }
+
+    // Additional filters
+    if (status) where.status = status;
+    if (priority) where.priority = priority;
+    if (trackId) where.trackId = trackId;
+    if (assigneeType && !tab) where.assigneeType = assigneeType;
+    if (assigneeId) {
+      where.assignments = { some: { userId: assigneeId } };
+    }
+    if (search) {
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { titleAr: { contains: search } },
+            { notes: { contains: search, mode: 'insensitive' } },
+          ],
+        },
+      ];
+    }
+    if (overdue) {
+      where.dueDate = { lt: new Date() };
+      where.status = { notIn: ['completed', 'cancelled'] };
+    }
+    if (dueDateFrom || dueDateTo) {
+      where.dueDate = {
+        ...(dueDateFrom ? { gte: new Date(dueDateFrom) } : {}),
+        ...(dueDateTo ? { lte: new Date(dueDateTo) } : {}),
+      };
+    }
+
+    const [data, total] = await Promise.all([
+      this.prisma.task.findMany({
+        where,
+        include: this.listIncludes,
+        orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.task.count({ where }),
+    ]);
+
+    return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  }
+
+  /**
+   * Legacy: findAll for admin/pm only (backward compat)
+   */
   async findAll(params: {
     page?: number;
     pageSize?: number;
@@ -48,7 +213,7 @@ export class TasksService {
     overdue?: boolean;
   }) {
     const { page = 1, pageSize = 25, status, priority, trackId, assigneeId, search, overdue } = params;
-    const where: any = {};
+    const where: any = { isDeleted: false };
 
     if (status) where.status = status;
     if (priority) where.priority = priority;
@@ -72,7 +237,7 @@ export class TasksService {
       this.prisma.task.findMany({
         where,
         include: this.listIncludes,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -89,7 +254,11 @@ export class TasksService {
   }) {
     const { page = 1, pageSize = 25, status } = params || {};
     const where: any = {
-      assignments: { some: { userId } },
+      isDeleted: false,
+      OR: [
+        { assigneeType: 'USER', assigneeUserId: userId },
+        { assignments: { some: { userId } } },
+      ],
     };
 
     if (status) where.status = status;
@@ -98,7 +267,7 @@ export class TasksService {
       this.prisma.task.findMany({
         where,
         include: this.listIncludes,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -114,7 +283,13 @@ export class TasksService {
     status?: string;
   }) {
     const { page = 1, pageSize = 25, status } = params || {};
-    const where: any = { trackId };
+    const where: any = {
+      isDeleted: false,
+      OR: [
+        { trackId },
+        { assigneeType: 'TRACK', assigneeTrackId: trackId },
+      ],
+    };
 
     if (status) where.status = status;
 
@@ -122,7 +297,7 @@ export class TasksService {
       this.prisma.task.findMany({
         where,
         include: this.listIncludes,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ dueDate: 'asc' }, { createdAt: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
@@ -137,12 +312,25 @@ export class TasksService {
       where: { id },
       include: this.detailIncludes,
     });
-    if (!task) throw new NotFoundException('المهمة غير موجودة');
+    if (!task || task.isDeleted) throw new NotFoundException('المهمة غير موجودة');
     return task;
   }
 
   async create(dto: CreateTaskDto, userId: string) {
-    const { assigneeIds, ...taskData } = dto;
+    const { assigneeIds, assigneeType, assigneeTrackId, assigneeUserId, ...taskData } = dto;
+
+    // Validate polymorphic assignment
+    this.validateAssignment(assigneeType, assigneeTrackId, assigneeUserId);
+
+    // Validate referenced entities exist
+    if (assigneeType === 'TRACK' && assigneeTrackId) {
+      const track = await this.prisma.track.findUnique({ where: { id: assigneeTrackId } });
+      if (!track) throw new BadRequestException('المسار المحدد غير موجود');
+    }
+    if (assigneeType === 'USER' && assigneeUserId) {
+      const user = await this.prisma.user.findUnique({ where: { id: assigneeUserId } });
+      if (!user) throw new BadRequestException('المستخدم المحدد غير موجود');
+    }
 
     const task = await this.prisma.task.create({
       data: {
@@ -150,6 +338,9 @@ export class TasksService {
         status: (dto.status as any) || 'pending',
         priority: (dto.priority as any) || 'medium',
         createdById: userId,
+        assigneeType: assigneeType as any,
+        assigneeTrackId: assigneeType === 'TRACK' ? assigneeTrackId : null,
+        assigneeUserId: assigneeType === 'USER' ? assigneeUserId : null,
         ...(assigneeIds && assigneeIds.length > 0
           ? {
               assignments: {
@@ -164,12 +355,22 @@ export class TasksService {
       include: this.detailIncludes,
     });
 
+    // Write task audit log
+    await this.writeTaskAudit(task.id, 'CREATED', null, task, userId);
+
     // Emit real-time event
     this.events.server.emit('task.created', { task });
     if (task.trackId) {
       this.events.emitToTrack(task.trackId, 'task.created', { task });
     }
-    // Notify assigned users
+    if (task.assigneeTrackId) {
+      this.events.emitToTrack(task.assigneeTrackId, 'task.created', { task });
+    }
+    // Notify assigned user
+    if (task.assigneeUserId) {
+      this.events.emitToUser(task.assigneeUserId, 'task.assigned', { task });
+    }
+    // Notify legacy assignees
     if (assigneeIds) {
       assigneeIds.forEach((uid) => {
         this.events.emitToUser(uid, 'task.assigned', { task });
@@ -181,16 +382,39 @@ export class TasksService {
 
   async update(id: string, dto: UpdateTaskDto, userId: string) {
     const existing = await this.findById(id);
-    const { assigneeIds, ...taskData } = dto;
+    const { assigneeIds, assigneeType, assigneeTrackId, assigneeUserId, ...taskData } = dto;
+
+    // If reassignment is requested, validate it
+    if (assigneeType) {
+      this.validateAssignment(assigneeType, assigneeTrackId, assigneeUserId);
+
+      if (assigneeType === 'TRACK' && assigneeTrackId) {
+        const track = await this.prisma.track.findUnique({ where: { id: assigneeTrackId } });
+        if (!track) throw new BadRequestException('المسار المحدد غير موجود');
+      }
+      if (assigneeType === 'USER' && assigneeUserId) {
+        const user = await this.prisma.user.findUnique({ where: { id: assigneeUserId } });
+        if (!user) throw new BadRequestException('المستخدم المحدد غير موجود');
+      }
+    }
 
     // Auto-set status to completed if progress reaches 100
     if (taskData.progress === 100 && existing.status !== 'completed') {
       (taskData as any).status = 'completed';
     }
 
+    const updateData: any = { ...taskData };
+
+    // Apply reassignment
+    if (assigneeType) {
+      updateData.assigneeType = assigneeType;
+      updateData.assigneeTrackId = assigneeType === 'TRACK' ? assigneeTrackId : null;
+      updateData.assigneeUserId = assigneeType === 'USER' ? assigneeUserId : null;
+    }
+
     const task = await this.prisma.task.update({
       where: { id },
-      data: taskData as any,
+      data: updateData,
       include: this.detailIncludes,
     });
 
@@ -209,6 +433,10 @@ export class TasksService {
     }
 
     const updated = assigneeIds !== undefined ? await this.findById(id) : task;
+
+    // Determine audit action
+    const action = assigneeType && assigneeType !== existing.assigneeType ? 'REASSIGNED' : 'UPDATED';
+    await this.writeTaskAudit(id, action, existing, updated, userId);
 
     await this.audit.log({
       actorId: userId,
@@ -232,12 +460,18 @@ export class TasksService {
   async updateStatus(id: string, status: string, userId: string) {
     const existing = await this.findById(id);
 
-    // Verify user is assigned to this task
-    const assignment = await this.prisma.taskAssignment.findFirst({
-      where: { taskId: id, userId },
-    });
-    if (!assignment) {
-      throw new ForbiddenException('ليس لديك صلاحية لتحديث هذه المهمة');
+    // Verify user is assigned to this task OR is the assignee user OR admin/pm
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const isAdminOrPm = user?.role === 'admin' || user?.role === 'pm';
+
+    if (!isAdminOrPm) {
+      const assignment = await this.prisma.taskAssignment.findFirst({
+        where: { taskId: id, userId },
+      });
+      const isDirectAssignee = existing.assigneeType === 'USER' && existing.assigneeUserId === userId;
+      if (!assignment && !isDirectAssignee) {
+        throw new ForbiddenException('ليس لديك صلاحية لتحديث هذه المهمة');
+      }
     }
 
     const data: any = { status };
@@ -250,6 +484,8 @@ export class TasksService {
       data,
       include: this.detailIncludes,
     });
+
+    await this.writeTaskAudit(id, 'STATUS_CHANGED', { status: existing.status }, { status: task.status }, userId);
 
     await this.audit.log({
       actorId: userId,
@@ -266,7 +502,6 @@ export class TasksService {
     if (task.trackId) {
       this.events.emitToTrack(task.trackId, 'task.updated', { task });
     }
-    // Notify task creator if status changed to completed
     if (status === 'completed' && existing.createdById) {
       this.events.emitToUser(existing.createdById, 'task.completed', { task });
     }
@@ -288,6 +523,8 @@ export class TasksService {
 
     const task = await this.findById(id);
 
+    await this.writeTaskAudit(id, 'REASSIGNED', null, { assignedUserIds: userIds }, assignedBy);
+
     await this.audit.log({
       actorId: assignedBy,
       actionType: 'update',
@@ -308,7 +545,13 @@ export class TasksService {
   async delete(id: string, userId: string) {
     const existing = await this.findById(id);
 
-    await this.prisma.task.delete({ where: { id } });
+    // Soft delete
+    await this.prisma.task.update({
+      where: { id },
+      data: { isDeleted: true, deletedAt: new Date() },
+    });
+
+    await this.writeTaskAudit(id, 'DELETED', existing, null, userId);
 
     await this.audit.log({
       actorId: userId,
@@ -329,7 +572,7 @@ export class TasksService {
   }
 
   async getStats(trackId?: string) {
-    const where: any = {};
+    const where: any = { isDeleted: false };
     if (trackId) where.trackId = trackId;
 
     const overdueWhere: any = {
@@ -338,7 +581,7 @@ export class TasksService {
       status: { notIn: ['completed', 'cancelled'] },
     };
 
-    const [total, byStatus, byPriority, overdue] = await Promise.all([
+    const [total, byStatus, byPriority, overdue, byAssigneeType] = await Promise.all([
       this.prisma.task.count({ where }),
       this.prisma.task.groupBy({
         by: ['status'],
@@ -351,13 +594,52 @@ export class TasksService {
         _count: true,
       }),
       this.prisma.task.count({ where: overdueWhere }),
+      this.prisma.task.groupBy({
+        by: ['assigneeType'],
+        where,
+        _count: true,
+      }),
     ]);
 
     return {
       total,
       byStatus: Object.fromEntries(byStatus.map((s) => [s.status, s._count])),
       byPriority: Object.fromEntries(byPriority.map((p) => [p.priority, p._count])),
+      byAssigneeType: Object.fromEntries(byAssigneeType.map((a) => [a.assigneeType, a._count])),
       overdue,
     };
+  }
+
+  async getTaskAuditLog(taskId: string, params?: { page?: number; pageSize?: number }) {
+    const { page = 1, pageSize = 25 } = params || {};
+    const [data, total] = await Promise.all([
+      this.prisma.taskAuditLog.findMany({
+        where: { taskId },
+        include: {
+          actor: { select: { id: true, name: true, nameAr: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.taskAuditLog.count({ where: { taskId } }),
+    ]);
+    return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  }
+
+  private async writeTaskAudit(taskId: string, action: string, before: any, after: any, actorUserId: string) {
+    try {
+      await this.prisma.taskAuditLog.create({
+        data: {
+          taskId,
+          action,
+          beforeJson: before ? JSON.parse(JSON.stringify(before)) : undefined,
+          afterJson: after ? JSON.parse(JSON.stringify(after)) : undefined,
+          actorUserId,
+        },
+      });
+    } catch {
+      // Silent fail - don't block task operations if audit log fails
+    }
   }
 }

@@ -11,6 +11,9 @@ import {
   Clock,
   FileText,
   ChevronLeft,
+  Building2,
+  Globe,
+  History,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -21,6 +24,8 @@ import {
   TASK_STATUS_COLORS,
   PRIORITY_LABELS,
   PRIORITY_COLORS,
+  ASSIGNEE_TYPE_LABELS,
+  ASSIGNEE_TYPE_COLORS,
 } from '@/lib/utils';
 import { tasksApi } from '@/lib/api';
 import { useAuth } from '@/stores/auth';
@@ -44,9 +49,26 @@ const STATUS_FLOW: Record<string, string[]> = {
 const TABS = [
   { key: 'details', label: 'التفاصيل' },
   { key: 'comments', label: 'التعليقات' },
+  { key: 'audit', label: 'سجل التعديلات' },
 ] as const;
 
 type TabKey = (typeof TABS)[number]['key'];
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  CREATED: 'إنشاء',
+  UPDATED: 'تحديث',
+  STATUS_CHANGED: 'تغيير الحالة',
+  COMMENT_ADDED: 'إضافة تعليق',
+  REASSIGNED: 'إعادة تعيين',
+  DELETED: 'حذف',
+};
+
+const ASSIGNEE_TYPE_ICONS: Record<string, typeof Users> = {
+  TRACK: Users,
+  USER: User,
+  HR: Building2,
+  GLOBAL: Globe,
+};
 
 export default function TaskDetailPanel({ task, onClose, onUpdate }: Props) {
   const { user } = useAuth();
@@ -59,6 +81,9 @@ export default function TaskDetailPanel({ task, onClose, onUpdate }: Props) {
   const statusColor = TASK_STATUS_COLORS[task.status] || 'bg-gray-500/20 text-gray-300';
   const priorityLabel = PRIORITY_LABELS[task.priority] || task.priority;
   const priorityColor = PRIORITY_COLORS[task.priority] || 'bg-gray-500/20 text-gray-300';
+  const assigneeTypeLabel = ASSIGNEE_TYPE_LABELS[task.assigneeType] || task.assigneeType;
+  const assigneeTypeColor = ASSIGNEE_TYPE_COLORS[task.assigneeType] || 'bg-gray-500/20 text-gray-300';
+  const AssigneeIcon = ASSIGNEE_TYPE_ICONS[task.assigneeType] || Globe;
 
   const isOverdue =
     task.dueDate &&
@@ -67,8 +92,9 @@ export default function TaskDetailPanel({ task, onClose, onUpdate }: Props) {
     task.status !== 'cancelled';
 
   const isAssigned = task.assignments?.some((a) => a.userId === user?.id);
+  const isDirectAssignee = task.assigneeType === 'USER' && task.assigneeUserId === user?.id;
   const isAdminOrPm = user?.role === 'admin' || user?.role === 'pm';
-  const canChangeStatus = isAssigned || isAdminOrPm;
+  const canChangeStatus = isAssigned || isDirectAssignee || isAdminOrPm;
 
   const nextStatuses = STATUS_FLOW[task.status] || [];
 
@@ -98,6 +124,18 @@ export default function TaskDetailPanel({ task, onClose, onUpdate }: Props) {
     }
   };
 
+  // Determine assignee display
+  let assigneeDisplay = '';
+  if (task.assigneeType === 'TRACK' && task.assigneeTrack) {
+    assigneeDisplay = task.assigneeTrack.nameAr;
+  } else if (task.assigneeType === 'USER' && task.assigneeUser) {
+    assigneeDisplay = task.assigneeUser.nameAr || task.assigneeUser.name;
+  } else if (task.assigneeType === 'HR') {
+    assigneeDisplay = 'قسم الموارد البشرية';
+  } else if (task.assigneeType === 'GLOBAL') {
+    assigneeDisplay = 'الجميع';
+  }
+
   return (
     <>
       {/* Overlay */}
@@ -120,6 +158,12 @@ export default function TaskDetailPanel({ task, onClose, onUpdate }: Props) {
                   className={cn('px-2.5 py-0.5 rounded-lg text-xs font-medium', priorityColor)}
                 >
                   {priorityLabel}
+                </span>
+                <span
+                  className={cn('px-2.5 py-0.5 rounded-lg text-xs font-medium flex items-center gap-1', assigneeTypeColor)}
+                >
+                  <AssigneeIcon className="h-3 w-3" />
+                  {assigneeTypeLabel}
                 </span>
                 {isOverdue && (
                   <span className="px-2.5 py-0.5 rounded-lg text-xs font-medium bg-red-500/20 text-red-300">
@@ -207,6 +251,24 @@ export default function TaskDetailPanel({ task, onClose, onUpdate }: Props) {
                 >
                   {priorityLabel}
                 </span>
+              </div>
+
+              {/* Assignee Type & Target */}
+              <div className="bg-white/5 rounded-xl p-3">
+                <span className="text-sm text-gray-400 flex items-center gap-2 mb-2">
+                  <AssigneeIcon className="w-4 h-4" />
+                  معين إلى
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className={cn('px-2.5 py-0.5 rounded-lg text-xs font-medium', assigneeTypeColor)}>
+                    {assigneeTypeLabel}
+                  </span>
+                  {assigneeDisplay && (
+                    <span className="text-sm text-white">
+                      {assigneeDisplay}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Progress */}
@@ -301,13 +363,13 @@ export default function TaskDetailPanel({ task, onClose, onUpdate }: Props) {
                 </div>
               )}
 
-              {/* Assignments */}
-              <div className="bg-white/5 rounded-xl p-3">
-                <span className="text-sm text-gray-400 flex items-center gap-2 mb-3">
-                  <Users className="w-4 h-4" />
-                  المسؤولون
-                </span>
-                {task.assignments && task.assignments.length > 0 ? (
+              {/* Assignments (legacy) */}
+              {task.assignments && task.assignments.length > 0 && (
+                <div className="bg-white/5 rounded-xl p-3">
+                  <span className="text-sm text-gray-400 flex items-center gap-2 mb-3">
+                    <Users className="w-4 h-4" />
+                    المسؤولون
+                  </span>
                   <div className="space-y-2">
                     {task.assignments.map((a) => {
                       const initial =
@@ -324,15 +386,43 @@ export default function TaskDetailPanel({ task, onClose, onUpdate }: Props) {
                       );
                     })}
                   </div>
-                ) : (
-                  <p className="text-sm text-gray-500">لا يوجد مسؤولون</p>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === 'comments' && (
             <CommentThread entityType="task" entityId={task.id} />
+          )}
+
+          {activeTab === 'audit' && (
+            <div className="space-y-3">
+              {task.auditLogs && task.auditLogs.length > 0 ? (
+                task.auditLogs.map((log) => (
+                  <div key={log.id} className="bg-white/5 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <History className="w-3.5 h-3.5 text-gray-400" />
+                        <span className="text-xs font-medium text-brand-300">
+                          {AUDIT_ACTION_LABELS[log.action] || log.action}
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-gray-500" dir="ltr">
+                        {formatDateTime(log.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      بواسطة {log.actor?.nameAr || log.actor?.name || '---'}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <History className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">لا يوجد سجل تعديلات</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

@@ -9,15 +9,21 @@ import {
   CheckCircle,
   AlertTriangle,
   Loader2,
+  Users,
+  User,
+  Building2,
+  Globe,
 } from 'lucide-react';
-import { useTasks, Task } from '@/stores/tasks';
+import { Task } from '@/stores/tasks';
+import { useTasks } from '@/stores/tasks';
 import { useAuth } from '@/stores/auth';
-import { tracksApi, usersApi } from '@/lib/api';
+import { tracksApi, usersApi, tasksApi } from '@/lib/api';
 import {
   cn,
   formatNumber,
   TASK_STATUS_LABELS,
   PRIORITY_LABELS,
+  ASSIGNEE_TYPE_LABELS,
 } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
 import TaskCard from '@/components/tasks/task-card';
@@ -27,6 +33,7 @@ import TaskDetailPanel from '@/components/tasks/task-detail-panel';
 interface Track {
   id: string;
   nameAr: string;
+  color?: string;
 }
 
 interface UserItem {
@@ -35,13 +42,29 @@ interface UserItem {
   nameAr: string;
 }
 
+type TabKey = 'all' | 'my' | 'track' | 'hr';
+
+const TAB_CONFIG: { key: TabKey; label: string; icon: typeof ListChecks; roles?: string[] }[] = [
+  { key: 'my', label: 'مهامي', icon: User },
+  { key: 'track', label: 'مساري', icon: Users },
+  { key: 'hr', label: 'الموارد البشرية', icon: Building2, roles: ['hr', 'admin', 'pm'] },
+  { key: 'all', label: 'الكل', icon: Globe, roles: ['admin', 'pm'] },
+];
+
 export default function TasksPage() {
   const { user } = useAuth();
-  const { tasks, loading, stats, statsLoading, fetchTasks, fetchStats } = useTasks();
+  const { stats, statsLoading, fetchStats } = useTasks();
+
+  // Task data (loaded per tab)
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState(0);
 
   // Filters
+  const [activeTab, setActiveTab] = useState<TabKey>('my');
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
+  const [assigneeTypeFilter, setAssigneeTypeFilter] = useState('');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
 
@@ -58,16 +81,46 @@ export default function TasksPage() {
 
   const isAdminOrPm = user?.role === 'admin' || user?.role === 'pm';
 
-  // Load tasks, stats, tracks, users
-  const loadAll = useCallback(() => {
-    fetchTasks();
-    fetchStats();
-  }, [fetchTasks, fetchStats]);
+  // Determine visible tabs based on role
+  const visibleTabs = useMemo(() => {
+    return TAB_CONFIG.filter((tab) => {
+      if (!tab.roles) return true;
+      return tab.roles.includes(user?.role || '');
+    });
+  }, [user?.role]);
 
+  // Load tasks for current tab with filters
+  const loadTasks = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: any = { tab: activeTab };
+      if (statusFilter) params.status = statusFilter;
+      if (priorityFilter) params.priority = priorityFilter;
+      if (assigneeTypeFilter) params.assigneeType = assigneeTypeFilter;
+      if (debouncedSearch) params.search = debouncedSearch;
+
+      const { data } = await tasksApi.list(params);
+      setTasks(data.data || []);
+      setTotal(data.total || 0);
+    } catch {
+      setTasks([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, statusFilter, priorityFilter, assigneeTypeFilter, debouncedSearch]);
+
+  // Load on mount and when filters change
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    loadTasks();
+  }, [loadTasks]);
 
+  // Load stats (admin/pm only)
+  useEffect(() => {
+    if (isAdminOrPm) fetchStats();
+  }, [isAdminOrPm, fetchStats]);
+
+  // Load tracks + users for modal
   useEffect(() => {
     const load = async () => {
       try {
@@ -81,20 +134,6 @@ export default function TasksPage() {
     load();
   }, []);
 
-  // Filtered tasks
-  const filtered = useMemo(() => {
-    return tasks.filter((t) => {
-      const matchStatus = !statusFilter || t.status === statusFilter;
-      const matchPriority = !priorityFilter || t.priority === priorityFilter;
-      const matchSearch =
-        !debouncedSearch ||
-        t.titleAr?.includes(debouncedSearch) ||
-        t.title?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-        t.track?.nameAr?.includes(debouncedSearch);
-      return matchStatus && matchPriority && matchSearch;
-    });
-  }, [tasks, statusFilter, priorityFilter, debouncedSearch]);
-
   // Handlers
   const handleCreate = () => {
     setEditingTask(null);
@@ -106,20 +145,17 @@ export default function TasksPage() {
   };
 
   const handleModalSuccess = () => {
-    loadAll();
+    loadTasks();
+    if (isAdminOrPm) fetchStats();
   };
 
   const handleDetailUpdate = () => {
-    loadAll();
-    // Refresh selected task from refreshed list
-    if (selectedTask) {
-      const updated = tasks.find((t) => t.id === selectedTask.id);
-      if (updated) setSelectedTask(updated);
-    }
+    loadTasks();
+    if (isAdminOrPm) fetchStats();
   };
 
   // Stats values
-  const safeStats = stats || { total: 0, in_progress: 0, completed: 0, overdue: 0 };
+  const safeStats = stats || { total: 0, byStatus: {}, overdue: 0 };
 
   const STAT_CARDS = [
     {
@@ -131,14 +167,14 @@ export default function TasksPage() {
     },
     {
       label: 'قيد التنفيذ',
-      value: formatNumber(safeStats.in_progress || 0),
+      value: formatNumber(safeStats.byStatus?.in_progress || 0),
       icon: Clock,
       color: 'text-amber-400',
       bg: 'bg-amber-500/20',
     },
     {
       label: 'مكتملة',
-      value: formatNumber(safeStats.completed || 0),
+      value: formatNumber(safeStats.byStatus?.completed || 0),
       icon: CheckCircle,
       color: 'text-emerald-400',
       bg: 'bg-emerald-500/20',
@@ -171,24 +207,45 @@ export default function TasksPage() {
         )}
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {STAT_CARDS.map((stat) => (
-          <div key={stat.label} className="glass p-4">
-            <div className="flex items-center gap-3">
-              <div className={cn('p-2.5 rounded-xl', stat.bg)}>
-                <stat.icon className={cn('w-5 h-5', stat.color)} />
-              </div>
-              <div className="min-w-0">
-                {statsLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-                ) : (
-                  <p className="text-lg font-bold truncate">{stat.value}</p>
-                )}
-                <p className="text-xs text-gray-400">{stat.label}</p>
+      {/* Stats Cards (admin/pm only) */}
+      {isAdminOrPm && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {STAT_CARDS.map((stat) => (
+            <div key={stat.label} className="glass p-4">
+              <div className="flex items-center gap-3">
+                <div className={cn('p-2.5 rounded-xl', stat.bg)}>
+                  <stat.icon className={cn('w-5 h-5', stat.color)} />
+                </div>
+                <div className="min-w-0">
+                  {statsLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
+                  ) : (
+                    <p className="text-lg font-bold truncate">{stat.value}</p>
+                  )}
+                  <p className="text-xs text-gray-400">{stat.label}</p>
+                </div>
               </div>
             </div>
-          </div>
+          ))}
+        </div>
+      )}
+
+      {/* Tabs */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {visibleTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors whitespace-nowrap',
+              activeTab === tab.key
+                ? 'bg-brand-500/20 text-brand-300'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10',
+            )}
+          >
+            <tab.icon className="h-4 w-4" />
+            {tab.label}
+          </button>
         ))}
       </div>
 
@@ -233,6 +290,22 @@ export default function TasksPage() {
             </option>
           ))}
         </select>
+
+        {/* Assignee type filter (only on 'all' tab) */}
+        {activeTab === 'all' && (
+          <select
+            value={assigneeTypeFilter}
+            onChange={(e) => setAssigneeTypeFilter(e.target.value)}
+            className="input-field w-auto"
+          >
+            <option value="">كل التعيينات</option>
+            {Object.entries(ASSIGNEE_TYPE_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Summary */}
@@ -240,7 +313,7 @@ export default function TasksPage() {
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-gray-400" />
           <span className="text-sm text-gray-400">
-            عرض {formatNumber(filtered.length)} من {formatNumber(tasks.length)} مهمة
+            عرض {formatNumber(tasks.length)} من {formatNumber(total)} مهمة
           </span>
         </div>
       </div>
@@ -250,14 +323,14 @@ export default function TasksPage() {
         <div className="flex items-center justify-center h-64">
           <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : filtered.length === 0 ? (
+      ) : tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-20 text-gray-400">
           <ListChecks className="h-12 w-12" />
           <p className="text-sm">لا توجد مهام</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((task) => (
+          {tasks.map((task) => (
             <TaskCard key={task.id} task={task} onClick={handleCardClick} />
           ))}
         </div>

@@ -1,13 +1,20 @@
 'use client';
 
-import { cn, formatDate, TASK_STATUS_LABELS, TASK_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/lib/utils';
-import { Calendar, Users } from 'lucide-react';
+import { cn, formatDate, TASK_STATUS_LABELS, TASK_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, ASSIGNEE_TYPE_LABELS, ASSIGNEE_TYPE_COLORS } from '@/lib/utils';
+import { Calendar, Users, User, Building2, Globe } from 'lucide-react';
 import { Task } from '@/stores/tasks';
 
 interface Props {
   task: Task;
   onClick: (task: Task) => void;
 }
+
+const ASSIGNEE_TYPE_ICONS: Record<string, typeof Users> = {
+  TRACK: Users,
+  USER: User,
+  HR: Building2,
+  GLOBAL: Globe,
+};
 
 export default function TaskCard({ task, onClick }: Props) {
   const statusLabel = TASK_STATUS_LABELS[task.status] || task.status;
@@ -16,11 +23,23 @@ export default function TaskCard({ task, onClick }: Props) {
   const priorityColor = PRIORITY_COLORS[task.priority] || 'bg-gray-500/20 text-gray-300';
   const progress = task.progress ?? 0;
 
+  const assigneeTypeLabel = ASSIGNEE_TYPE_LABELS[task.assigneeType] || task.assigneeType;
+  const assigneeTypeColor = ASSIGNEE_TYPE_COLORS[task.assigneeType] || 'bg-gray-500/20 text-gray-300';
+  const AssigneeIcon = ASSIGNEE_TYPE_ICONS[task.assigneeType] || Globe;
+
   const isOverdue =
     task.dueDate &&
     new Date(task.dueDate) < new Date() &&
     task.status !== 'completed' &&
     task.status !== 'cancelled';
+
+  // Determine assignee display name
+  let assigneeName = '';
+  if (task.assigneeType === 'TRACK' && task.assigneeTrack) {
+    assigneeName = task.assigneeTrack.nameAr;
+  } else if (task.assigneeType === 'USER' && task.assigneeUser) {
+    assigneeName = task.assigneeUser.nameAr || task.assigneeUser.name;
+  }
 
   return (
     <button
@@ -41,6 +60,10 @@ export default function TaskCard({ task, onClick }: Props) {
           </span>
           <span className={cn('rounded-full px-3 py-1 text-xs font-medium', priorityColor)}>
             {priorityLabel}
+          </span>
+          <span className={cn('rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1', assigneeTypeColor)}>
+            <AssigneeIcon className="h-3 w-3" />
+            {assigneeTypeLabel}
           </span>
         </div>
       </div>
@@ -66,11 +89,15 @@ export default function TaskCard({ task, onClick }: Props) {
         </div>
       </div>
 
-      {/* Footer: Assignees + Due Date */}
+      {/* Footer: Assignee + Due Date */}
       <div className="flex items-center justify-between">
-        {/* Assignees */}
+        {/* Assignee info */}
         <div className="flex items-center gap-1.5">
-          {task.assignments && task.assignments.length > 0 ? (
+          {assigneeName ? (
+            <span className="text-xs text-gray-300 truncate max-w-[140px]">
+              {assigneeName}
+            </span>
+          ) : task.assignments && task.assignments.length > 0 ? (
             <div className="flex items-center -space-x-2 rtl:space-x-reverse">
               {task.assignments.slice(0, 3).map((a) => {
                 const initial = a.user?.nameAr?.charAt(0) || a.user?.name?.charAt(0) || '?';
@@ -93,7 +120,7 @@ export default function TaskCard({ task, onClick }: Props) {
           ) : (
             <div className="flex items-center gap-1 text-gray-500">
               <Users className="h-3.5 w-3.5" />
-              <span className="text-xs">غير معين</span>
+              <span className="text-xs">{task.assigneeType === 'GLOBAL' ? 'عام' : task.assigneeType === 'HR' ? 'HR' : 'غير معين'}</span>
             </div>
           )}
         </div>
