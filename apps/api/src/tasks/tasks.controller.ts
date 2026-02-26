@@ -6,7 +6,12 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { CreateTaskDto, UpdateTaskDto, UpdateTaskStatusDto, AssignTaskDto } from './tasks.dto';
+import {
+  CreateTaskDto, UpdateTaskDto, UpdateTaskStatusDto, AssignTaskDto,
+  CreateChecklistItemDto, UpdateChecklistItemDto,
+  CreateAdminNoteDto, UpdateAdminNoteDto,
+  CreateTaskUpdateDto,
+} from './tasks.dto';
 
 @Controller('tasks')
 @UseGuards(JwtAuthGuard)
@@ -72,6 +77,13 @@ export class TasksController {
   @Roles('admin', 'pm')
   getStats(@Query('trackId') trackId?: string) {
     return this.tasks.getStats(trackId);
+  }
+
+  @Get('executive/stats')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'pm')
+  getExecutiveStats() {
+    return this.tasks.getExecutiveStats();
   }
 
   @Get('track/:trackId')
@@ -166,5 +178,123 @@ export class TasksController {
   async delete(@Param('id') id: string, @CurrentUser() user: any, @Req() req: Request) {
     const result = await this.tasks.delete(id, user.id);
     return result;
+  }
+
+  // ─── Checklist Endpoints ───
+
+  @Get(':id/checklist')
+  getChecklist(@Param('id') id: string) {
+    return this.tasks.getChecklist(id);
+  }
+
+  @Post(':id/checklist')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'pm', 'track_lead')
+  createChecklistItem(
+    @Param('id') id: string,
+    @Body() dto: CreateChecklistItemDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.tasks.createChecklistItem(id, dto, user.id);
+  }
+
+  @Patch(':id/checklist/:itemId')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'pm', 'track_lead')
+  updateChecklistItem(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateChecklistItemDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.tasks.updateChecklistItem(id, itemId, dto, user.id);
+  }
+
+  @Delete(':id/checklist/:itemId')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'pm', 'track_lead')
+  deleteChecklistItem(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.tasks.deleteChecklistItem(id, itemId, user.id);
+  }
+
+  // ─── Admin Notes Endpoints ───
+
+  @Get(':id/admin-notes')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'pm')
+  getAdminNotes(@Param('id') id: string) {
+    return this.tasks.getAdminNotes(id);
+  }
+
+  @Post(':id/admin-notes')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'pm')
+  createAdminNote(
+    @Param('id') id: string,
+    @Body() dto: CreateAdminNoteDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.tasks.createAdminNote(id, dto, user.id);
+  }
+
+  @Patch(':id/admin-notes/:noteId')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'pm')
+  updateAdminNote(
+    @Param('id') id: string,
+    @Param('noteId') noteId: string,
+    @Body() dto: UpdateAdminNoteDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.tasks.updateAdminNote(id, noteId, dto, user.id);
+  }
+
+  @Delete(':id/admin-notes/:noteId')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'pm')
+  deleteAdminNote(
+    @Param('id') id: string,
+    @Param('noteId') noteId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.tasks.deleteAdminNote(id, noteId, user.id);
+  }
+
+  // ─── Task Updates Endpoints ───
+
+  @Get(':id/updates')
+  getTaskUpdates(
+    @Param('id') id: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    return this.tasks.getTaskUpdates(id, {
+      page: page ? +page : undefined,
+      pageSize: pageSize ? +pageSize : undefined,
+    });
+  }
+
+  @Post(':id/updates')
+  createTaskUpdate(
+    @Param('id') id: string,
+    @Body() dto: CreateTaskUpdateDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.tasks.createTaskUpdate(id, dto, user.id);
+  }
+
+  @Delete(':id/updates/:updateId')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'pm', 'track_lead')
+  deleteTaskUpdate(
+    @Param('id') id: string,
+    @Param('updateId') updateId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.tasks.deleteTaskUpdate(id, updateId, user.id);
   }
 }

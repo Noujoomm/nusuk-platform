@@ -30,6 +30,10 @@ export class CreateTaskDto {
   trackId?: string;
 
   @IsOptional()
+  @IsString()
+  scopeBlockId?: string;
+
+  @IsOptional()
   @IsDateString()
   dueDate?: string;
 
@@ -49,7 +53,6 @@ export class CreateTaskDto {
   @IsString({ message: 'معرف المستخدم مطلوب عند التعيين لموظف' })
   assigneeUserId?: string;
 
-  // Legacy: keep for backward compat but optional
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -84,6 +87,10 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsString()
   trackId?: string;
+
+  @IsOptional()
+  @IsString()
+  scopeBlockId?: string;
 
   @IsOptional()
   @IsDateString()
@@ -127,4 +134,68 @@ export class AssignTaskDto {
   @IsArray()
   @IsString({ each: true })
   userIds: string[];
+}
+
+// ─── TaskChecklist DTOs ───
+
+export class CreateChecklistItemDto {
+  @IsString()
+  @MinLength(2)
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  titleAr?: string;
+
+  @IsOptional()
+  @IsNumber()
+  sortOrder?: number;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class UpdateChecklistItemDto {
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  titleAr?: string;
+
+  @IsOptional()
+  @IsEnum(['pending', 'approved', 'completed', 'needs_revision'])
+  status?: string;
+
+  @IsOptional()
+  @IsNumber()
+  sortOrder?: number;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+// ─── AdminNote DTOs ───
+
+export class CreateAdminNoteDto {
+  @IsString()
+  @MinLength(1, { message: 'محتوى الملاحظة مطلوب' })
+  content: string;
+}
+
+export class UpdateAdminNoteDto {
+  @IsString()
+  @MinLength(1)
+  content: string;
+}
+
+// ─── TaskUpdate DTOs ───
+
+export class CreateTaskUpdateDto {
+  @IsString()
+  @MinLength(1, { message: 'محتوى التحديث مطلوب' })
+  content: string;
 }

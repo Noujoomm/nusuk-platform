@@ -48,6 +48,9 @@ model User {
   taskAssignedBy     TaskAssignment[]       @relation("TaskAssigner")
   taskFiles          TaskFile[]             @relation("TaskFileUploader")
   taskAuditLogs      TaskAuditLog[]         @relation("TaskAuditActor")
+  taskChecklistItems TaskChecklist[]        @relation("TaskChecklistCreator")
+  adminNotes         AdminNote[]            @relation("AdminNoteAuthor")
+  taskUpdates        TaskUpdate[]           @relation("TaskUpdateAuthor")
   aiReports          AIReport[]             @relation("AIReportAuthor")
 
   // Phase 3: Updates & Import
@@ -247,6 +250,7 @@ model ScopeBlock {
   track    Track       @relation(fields: [trackId], references: [id], onDelete: Cascade)
   parent   ScopeBlock? @relation("ScopeBlockHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children ScopeBlock[] @relation("ScopeBlockHierarchy")
+  tasks    Task[]       @relation("TaskScopeBlock")
 
   @@unique([trackId, code])
   @@index([trackId])
@@ -724,6 +728,7 @@ model Task {
   status        TaskStatus   @default(pending)
   priority      Priority     @default(medium)
   trackId       String?      @map("track_id")
+  scopeBlockId  String?      @map("scope_block_id")
   dueDate       DateTime?    @map("due_date")
   progress      Float        @default(0)
   notes         String?      @db.Text
@@ -739,14 +744,19 @@ model Task {
   assigneeUserId  String?      @map("assignee_user_id")
 
   track         Track?           @relation(fields: [trackId], references: [id], onDelete: SetNull)
+  scopeBlock    ScopeBlock?      @relation("TaskScopeBlock", fields: [scopeBlockId], references: [id], onDelete: SetNull)
   createdBy     User             @relation("TaskCreator", fields: [createdById], references: [id])
   assigneeTrack Track?           @relation("TaskAssigneeTrack", fields: [assigneeTrackId], references: [id], onDelete: SetNull)
   assigneeUser  User?            @relation("TaskAssigneeUser", fields: [assigneeUserId], references: [id], onDelete: SetNull)
   assignments   TaskAssignment[]
   files         TaskFile[]
   auditLogs     TaskAuditLog[]
+  checklist     TaskChecklist[]
+  adminNotes    AdminNote[]
+  taskUpdates   TaskUpdate[]
 
   @@index([trackId])
+  @@index([scopeBlockId])
   @@index([status])
   @@index([createdById])
   @@index([dueDate])
@@ -807,6 +817,74 @@ model TaskFile {
 
   @@index([taskId])
   @@map("task_files")
+}
+
+// ─── TASK CHECKLIST (managed by Track Leader) ───
+
+enum ChecklistStatus {
+  pending
+  approved
+  completed
+  needs_revision
+}
+
+model TaskChecklist {
+  id          String          @id @default(cuid())
+  taskId      String          @map("task_id")
+  title       String
+  titleAr     String?         @map("title_ar")
+  status      ChecklistStatus @default(pending)
+  sortOrder   Int             @default(0) @map("sort_order")
+  notes       String?         @db.Text
+  createdById String          @map("created_by_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  task      Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdBy User @relation("TaskChecklistCreator", fields: [createdById], references: [id])
+
+  @@index([taskId])
+  @@index([status])
+  @@map("task_checklists")
+}
+
+// ─── ADMIN NOTES (private, visible only to admin/pm) ───
+
+model AdminNote {
+  id          String   @id @default(cuid())
+  taskId      String   @map("task_id")
+  content     String   @db.Text
+  authorId    String   @map("author_id")
+  editHistory Json?    @map("edit_history") @default("[]")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation("AdminNoteAuthor", fields: [authorId], references: [id])
+
+  @@index([taskId])
+  @@index([authorId])
+  @@map("admin_notes")
+}
+
+// ─── TASK UPDATES (daily updates per task) ───
+
+model TaskUpdate {
+  id          String   @id @default(cuid())
+  taskId      String   @map("task_id")
+  content     String   @db.Text
+  authorId    String   @map("author_id")
+  attachments Json?    @default("[]")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation("TaskUpdateAuthor", fields: [authorId], references: [id])
+
+  @@index([taskId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("task_updates")
 }
 
 // ─── AI & EMBEDDINGS ───

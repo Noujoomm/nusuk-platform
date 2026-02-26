@@ -128,6 +128,20 @@ export const CONTRACT_TYPE_LABELS: Record<string, string> = {
   secondment: 'إعارة',
 };
 
+export const CHECKLIST_STATUS_LABELS: Record<string, string> = {
+  pending: 'قيد الانتظار',
+  approved: 'معتمد',
+  completed: 'مكتمل',
+  needs_revision: 'يحتاج مراجعة',
+};
+
+export const CHECKLIST_STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-gray-500/20 text-gray-300',
+  approved: 'bg-emerald-500/20 text-emerald-300',
+  completed: 'bg-blue-500/20 text-blue-300',
+  needs_revision: 'bg-amber-500/20 text-amber-300',
+};
+
 export function formatNumber(n: number) {
   return new Intl.NumberFormat('ar-SA').format(n);
 }

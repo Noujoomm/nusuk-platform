@@ -313,6 +313,7 @@ export const tasksApi = {
   myTasks: (params?: any) => api.get('/tasks/my', { params }),
   byTrack: (trackId: string, params?: any) => api.get(`/tasks/track/${trackId}`, { params }),
   stats: (params?: any) => api.get('/tasks/stats', { params }),
+  executiveStats: () => api.get('/tasks/executive/stats'),
   get: (id: string) => api.get(`/tasks/${id}`),
   create: (data: any) => api.post('/tasks', data),
   update: (id: string, data: any) => api.patch(`/tasks/${id}`, data),
@@ -320,6 +321,20 @@ export const tasksApi = {
   assign: (id: string, userIds: string[]) => api.post(`/tasks/${id}/assign`, { userIds }),
   delete: (id: string) => api.delete(`/tasks/${id}`),
   auditLog: (id: string, params?: any) => api.get(`/tasks/${id}/audit`, { params }),
+  // Checklist
+  getChecklist: (id: string) => api.get(`/tasks/${id}/checklist`),
+  createChecklistItem: (id: string, data: any) => api.post(`/tasks/${id}/checklist`, data),
+  updateChecklistItem: (id: string, itemId: string, data: any) => api.patch(`/tasks/${id}/checklist/${itemId}`, data),
+  deleteChecklistItem: (id: string, itemId: string) => api.delete(`/tasks/${id}/checklist/${itemId}`),
+  // Admin Notes
+  getAdminNotes: (id: string) => api.get(`/tasks/${id}/admin-notes`),
+  createAdminNote: (id: string, data: any) => api.post(`/tasks/${id}/admin-notes`, data),
+  updateAdminNote: (id: string, noteId: string, data: any) => api.patch(`/tasks/${id}/admin-notes/${noteId}`, data),
+  deleteAdminNote: (id: string, noteId: string) => api.delete(`/tasks/${id}/admin-notes/${noteId}`),
+  // Task Updates
+  getTaskUpdates: (id: string, params?: any) => api.get(`/tasks/${id}/updates`, { params }),
+  createTaskUpdate: (id: string, data: any) => api.post(`/tasks/${id}/updates`, data),
+  deleteTaskUpdate: (id: string, updateId: string) => api.delete(`/tasks/${id}/updates/${updateId}`),
 };
 
 // ─── AI ───

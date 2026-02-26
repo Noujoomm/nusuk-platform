@@ -1,7 +1,7 @@
 'use client';
 
 import { cn, formatDate, TASK_STATUS_LABELS, TASK_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, ASSIGNEE_TYPE_LABELS, ASSIGNEE_TYPE_COLORS } from '@/lib/utils';
-import { Calendar, Users, User, Building2, Globe } from 'lucide-react';
+import { Calendar, Users, User, Building2, Globe, Hash, CheckSquare, RefreshCw, Paperclip } from 'lucide-react';
 import { Task } from '@/stores/tasks';
 
 interface Props {
@@ -139,9 +139,9 @@ export default function TaskCard({ task, onClick }: Props) {
         )}
       </div>
 
-      {/* Track badge */}
-      {task.track && (
-        <div className="mt-3 pt-3 border-t border-white/5">
+      {/* Track + Scope + Counts */}
+      <div className="mt-3 pt-3 border-t border-white/5 flex items-center gap-2 flex-wrap">
+        {task.track && (
           <span
             className="inline-flex items-center rounded-lg px-2 py-0.5 text-[10px] font-medium"
             style={{
@@ -151,8 +151,29 @@ export default function TaskCard({ task, onClick }: Props) {
           >
             {task.track.nameAr}
           </span>
-        </div>
-      )}
+        )}
+        {task.scopeBlock && (
+          <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-medium bg-brand-500/10 text-brand-300 font-mono">
+            <Hash className="h-2.5 w-2.5" />
+            {task.scopeBlock.code}
+          </span>
+        )}
+        {(task._count?.checklist || 0) > 0 && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
+            <CheckSquare className="h-2.5 w-2.5" />{task._count?.checklist}
+          </span>
+        )}
+        {(task._count?.taskUpdates || 0) > 0 && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
+            <RefreshCw className="h-2.5 w-2.5" />{task._count?.taskUpdates}
+          </span>
+        )}
+        {(task._count?.files || 0) > 0 && (
+          <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
+            <Paperclip className="h-2.5 w-2.5" />{task._count?.files}
+          </span>
+        )}
+      </div>
     </button>
   );
 }

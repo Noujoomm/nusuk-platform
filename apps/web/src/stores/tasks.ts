@@ -12,6 +12,7 @@ export interface Task {
   status: string;
   priority: string;
   trackId?: string;
+  scopeBlockId?: string;
   dueDate?: string;
   progress: number;
   notes?: string;
@@ -26,6 +27,7 @@ export interface Task {
   assigneeUserId?: string;
 
   track?: { id: string; nameAr: string; color: string };
+  scopeBlock?: { id: string; code: string; title: string; trackId?: string };
   createdBy?: { id: string; name: string; nameAr: string };
   assigneeTrack?: { id: string; nameAr: string; color: string };
   assigneeUser?: { id: string; name: string; nameAr: string };
@@ -35,6 +37,34 @@ export interface Task {
     user: { id: string; name: string; nameAr: string };
   }>;
   files?: any[];
+  checklist?: Array<{
+    id: string;
+    title: string;
+    titleAr?: string;
+    status: string;
+    sortOrder: number;
+    notes?: string;
+    createdBy?: { id: string; name: string; nameAr: string };
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  adminNotes?: Array<{
+    id: string;
+    content: string;
+    authorId: string;
+    author?: { id: string; name: string; nameAr: string };
+    editHistory?: any[];
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  taskUpdates?: Array<{
+    id: string;
+    content: string;
+    authorId: string;
+    author?: { id: string; name: string; nameAr: string };
+    attachments?: any[];
+    createdAt: string;
+  }>;
   auditLogs?: Array<{
     id: string;
     action: string;
@@ -44,6 +74,12 @@ export interface Task {
     actor?: { id: string; name: string; nameAr: string };
     createdAt: string;
   }>;
+  _count?: {
+    checklist?: number;
+    adminNotes?: number;
+    taskUpdates?: number;
+    files?: number;
+  };
 }
 
 interface TasksState {

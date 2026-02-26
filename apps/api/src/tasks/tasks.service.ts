@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { PrismaService } from '../common/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { EventsGateway } from '../websocket/events.gateway';
-import { CreateTaskDto, UpdateTaskDto } from './tasks.dto';
+import { CreateTaskDto, UpdateTaskDto, CreateChecklistItemDto, UpdateChecklistItemDto, CreateAdminNoteDto, UpdateAdminNoteDto, CreateTaskUpdateDto } from './tasks.dto';
 
 @Injectable()
 export class TasksService {
@@ -14,6 +14,7 @@ export class TasksService {
 
   private readonly listIncludes = {
     track: { select: { id: true, nameAr: true, color: true } },
+    scopeBlock: { select: { id: true, code: true, title: true } },
     createdBy: { select: { id: true, name: true, nameAr: true } },
     assigneeTrack: { select: { id: true, nameAr: true, color: true } },
     assigneeUser: { select: { id: true, name: true, nameAr: true } },
@@ -22,10 +23,19 @@ export class TasksService {
         user: { select: { id: true, name: true, nameAr: true } },
       },
     },
+    _count: {
+      select: {
+        checklist: true,
+        adminNotes: true,
+        taskUpdates: true,
+        files: true,
+      },
+    },
   };
 
   private readonly detailIncludes = {
     track: { select: { id: true, nameAr: true, color: true } },
+    scopeBlock: { select: { id: true, code: true, title: true, trackId: true } },
     createdBy: { select: { id: true, name: true, nameAr: true } },
     assigneeTrack: { select: { id: true, nameAr: true, color: true } },
     assigneeUser: { select: { id: true, name: true, nameAr: true } },
@@ -38,6 +48,20 @@ export class TasksService {
       include: {
         uploadedBy: { select: { id: true, name: true, nameAr: true } },
       },
+      orderBy: { createdAt: 'desc' as const },
+    },
+    checklist: {
+      include: {
+        createdBy: { select: { id: true, name: true, nameAr: true } },
+      },
+      orderBy: { sortOrder: 'asc' as const },
+    },
+    taskUpdates: {
+      include: {
+        author: { select: { id: true, name: true, nameAr: true } },
+      },
+      orderBy: { createdAt: 'desc' as const },
+      take: 50,
     },
     auditLogs: {
       include: {
@@ -625,6 +649,238 @@ export class TasksService {
       this.prisma.taskAuditLog.count({ where: { taskId } }),
     ]);
     return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  }
+
+  // ─── CHECKLIST METHODS (Track Leader control) ───
+
+  async getChecklist(taskId: string) {
+    await this.findById(taskId);
+    return this.prisma.taskChecklist.findMany({
+      where: { taskId },
+      include: { createdBy: { select: { id: true, name: true, nameAr: true } } },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async createChecklistItem(taskId: string, dto: CreateChecklistItemDto, userId: string) {
+    await this.findById(taskId);
+    const item = await this.prisma.taskChecklist.create({
+      data: {
+        taskId,
+        title: dto.title,
+        titleAr: dto.titleAr,
+        sortOrder: dto.sortOrder ?? 0,
+        notes: dto.notes,
+        createdById: userId,
+      },
+      include: { createdBy: { select: { id: true, name: true, nameAr: true } } },
+    });
+    await this.writeTaskAudit(taskId, 'CHECKLIST_ADDED', null, { itemId: item.id, title: dto.title }, userId);
+    return item;
+  }
+
+  async updateChecklistItem(taskId: string, itemId: string, dto: UpdateChecklistItemDto, userId: string) {
+    const existing = await this.prisma.taskChecklist.findFirst({ where: { id: itemId, taskId } });
+    if (!existing) throw new NotFoundException('عنصر القائمة غير موجود');
+
+    const item = await this.prisma.taskChecklist.update({
+      where: { id: itemId },
+      data: {
+        ...(dto.title !== undefined ? { title: dto.title } : {}),
+        ...(dto.titleAr !== undefined ? { titleAr: dto.titleAr } : {}),
+        ...(dto.status !== undefined ? { status: dto.status as any } : {}),
+        ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+        ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+      },
+      include: { createdBy: { select: { id: true, name: true, nameAr: true } } },
+    });
+
+    const action = dto.status ? 'CHECKLIST_STATUS_CHANGED' : 'CHECKLIST_UPDATED';
+    await this.writeTaskAudit(taskId, action, { status: existing.status }, { status: item.status, itemId }, userId);
+    return item;
+  }
+
+  async deleteChecklistItem(taskId: string, itemId: string, userId: string) {
+    const existing = await this.prisma.taskChecklist.findFirst({ where: { id: itemId, taskId } });
+    if (!existing) throw new NotFoundException('عنصر القائمة غير موجود');
+    await this.prisma.taskChecklist.delete({ where: { id: itemId } });
+    await this.writeTaskAudit(taskId, 'CHECKLIST_DELETED', { itemId, title: existing.title }, null, userId);
+    return { message: 'تم حذف عنصر القائمة' };
+  }
+
+  // ─── ADMIN NOTES (private, admin/pm only) ───
+
+  async getAdminNotes(taskId: string) {
+    await this.findById(taskId);
+    return this.prisma.adminNote.findMany({
+      where: { taskId },
+      include: { author: { select: { id: true, name: true, nameAr: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createAdminNote(taskId: string, dto: CreateAdminNoteDto, userId: string) {
+    await this.findById(taskId);
+    const note = await this.prisma.adminNote.create({
+      data: {
+        taskId,
+        content: dto.content,
+        authorId: userId,
+      },
+      include: { author: { select: { id: true, name: true, nameAr: true } } },
+    });
+    await this.writeTaskAudit(taskId, 'ADMIN_NOTE_ADDED', null, { noteId: note.id }, userId);
+    return note;
+  }
+
+  async updateAdminNote(taskId: string, noteId: string, dto: UpdateAdminNoteDto, userId: string) {
+    const existing = await this.prisma.adminNote.findFirst({ where: { id: noteId, taskId } });
+    if (!existing) throw new NotFoundException('الملاحظة غير موجودة');
+
+    const editHistory = Array.isArray(existing.editHistory) ? existing.editHistory : [];
+    editHistory.push({ content: existing.content, editedAt: new Date().toISOString(), editedBy: userId });
+
+    const note = await this.prisma.adminNote.update({
+      where: { id: noteId },
+      data: { content: dto.content, editHistory: editHistory as any },
+      include: { author: { select: { id: true, name: true, nameAr: true } } },
+    });
+    await this.writeTaskAudit(taskId, 'ADMIN_NOTE_UPDATED', null, { noteId }, userId);
+    return note;
+  }
+
+  async deleteAdminNote(taskId: string, noteId: string, userId: string) {
+    const existing = await this.prisma.adminNote.findFirst({ where: { id: noteId, taskId } });
+    if (!existing) throw new NotFoundException('الملاحظة غير موجودة');
+    await this.prisma.adminNote.delete({ where: { id: noteId } });
+    await this.writeTaskAudit(taskId, 'ADMIN_NOTE_DELETED', { noteId }, null, userId);
+    return { message: 'تم حذف الملاحظة' };
+  }
+
+  // ─── TASK UPDATES (daily updates per task) ───
+
+  async getTaskUpdates(taskId: string, params?: { page?: number; pageSize?: number }) {
+    await this.findById(taskId);
+    const { page = 1, pageSize = 25 } = params || {};
+    const [data, total] = await Promise.all([
+      this.prisma.taskUpdate.findMany({
+        where: { taskId },
+        include: { author: { select: { id: true, name: true, nameAr: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.taskUpdate.count({ where: { taskId } }),
+    ]);
+    return { data, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+  }
+
+  async createTaskUpdate(taskId: string, dto: CreateTaskUpdateDto, userId: string) {
+    await this.findById(taskId);
+    const update = await this.prisma.taskUpdate.create({
+      data: {
+        taskId,
+        content: dto.content,
+        authorId: userId,
+      },
+      include: { author: { select: { id: true, name: true, nameAr: true } } },
+    });
+    await this.writeTaskAudit(taskId, 'UPDATE_ADDED', null, { updateId: update.id }, userId);
+
+    // Emit real-time event
+    const task = await this.prisma.task.findUnique({ where: { id: taskId }, select: { trackId: true } });
+    if (task?.trackId) {
+      this.events.emitToTrack(task.trackId, 'task.update_added', { taskId, update });
+    }
+
+    return update;
+  }
+
+  async deleteTaskUpdate(taskId: string, updateId: string, userId: string) {
+    const existing = await this.prisma.taskUpdate.findFirst({ where: { id: updateId, taskId } });
+    if (!existing) throw new NotFoundException('التحديث غير موجود');
+    await this.prisma.taskUpdate.delete({ where: { id: updateId } });
+    return { message: 'تم حذف التحديث' };
+  }
+
+  // ─── EXECUTIVE DASHBOARD STATS ───
+
+  async getExecutiveStats() {
+    const where = { isDeleted: false };
+    const overdueWhere = {
+      ...where,
+      dueDate: { lt: new Date() },
+      status: { notIn: ['completed', 'cancelled'] as any },
+    };
+
+    const [
+      total,
+      byStatus,
+      byPriority,
+      overdue,
+      byTrack,
+      recentUpdates,
+    ] = await Promise.all([
+      this.prisma.task.count({ where }),
+      this.prisma.task.groupBy({ by: ['status'], where, _count: true }),
+      this.prisma.task.groupBy({ by: ['priority'], where, _count: true }),
+      this.prisma.task.count({ where: overdueWhere }),
+      this.prisma.task.groupBy({
+        by: ['trackId'],
+        where: { ...where, trackId: { not: null } },
+        _count: true,
+        _avg: { progress: true },
+      }),
+      this.prisma.taskUpdate.findMany({
+        include: {
+          author: { select: { id: true, name: true, nameAr: true } },
+          task: { select: { id: true, titleAr: true, trackId: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      }),
+    ]);
+
+    // Get track names for the byTrack stats
+    const trackIds = byTrack.map((t) => t.trackId).filter(Boolean) as string[];
+    const tracks = trackIds.length > 0
+      ? await this.prisma.track.findMany({
+          where: { id: { in: trackIds } },
+          select: { id: true, nameAr: true, color: true },
+        })
+      : [];
+    const trackMap = Object.fromEntries(tracks.map((t) => [t.id, t]));
+
+    const byTrackEnriched = byTrack.map((t) => ({
+      trackId: t.trackId,
+      track: trackMap[t.trackId!] || null,
+      count: t._count,
+      avgProgress: t._avg?.progress || 0,
+    }));
+
+    // Completion rate per track
+    const completedByTrack = await this.prisma.task.groupBy({
+      by: ['trackId'],
+      where: { ...where, status: 'completed', trackId: { not: null } },
+      _count: true,
+    });
+    const completedMap = Object.fromEntries(completedByTrack.map((c) => [c.trackId, c._count]));
+
+    const trackStats = byTrackEnriched.map((t) => ({
+      ...t,
+      completed: completedMap[t.trackId!] || 0,
+      completionRate: t.count > 0 ? Math.round(((completedMap[t.trackId!] || 0) / t.count) * 100) : 0,
+    }));
+
+    return {
+      total,
+      byStatus: Object.fromEntries(byStatus.map((s) => [s.status, s._count])),
+      byPriority: Object.fromEntries(byPriority.map((p) => [p.priority, p._count])),
+      overdue,
+      completionRate: total > 0 ? Math.round(((byStatus.find((s) => s.status === 'completed')?._count || 0) / total) * 100) : 0,
+      trackStats,
+      recentUpdates,
+    };
   }
 
   private async writeTaskAudit(taskId: string, action: string, before: any, after: any, actorUserId: string) {
