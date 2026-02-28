@@ -28,6 +28,7 @@ import { ProgressModule } from './progress/progress.module';
 import { StorageModule } from './storage/storage.module';
 import { DailyUpdatesModule } from './daily-updates/daily-updates.module';
 import { ImportsModule } from './imports/imports.module';
+import { SystemExportModule } from './system-export/system-export.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -60,6 +61,7 @@ import { HealthController } from './health.controller';
     StorageModule,
     DailyUpdatesModule,
     ImportsModule,
+    SystemExportModule,
   ],
   controllers: [HealthController],
   providers: [

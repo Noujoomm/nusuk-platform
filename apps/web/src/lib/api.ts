@@ -379,3 +379,12 @@ export const importsApi = {
 export const searchApi = {
   search: (q: string, params?: any) => api.get('/search', { params: { q, ...params } }),
 };
+
+// ─── Admin System Export ───
+export const adminExportApi = {
+  systemStats: () => api.get('/admin/system-stats'),
+  fullExport: () => api.get('/admin/full-system-export', { timeout: 120000 }),
+  integrityCheck: () => api.get('/admin/integrity-check', { timeout: 60000 }),
+  tracksDeep: (trackId?: string) => api.get('/admin/tracks-deep', { params: trackId ? { trackId } : {}, timeout: 120000 }),
+  downloadZip: () => api.get('/admin/export-zip', { responseType: 'blob', timeout: 300000 }),
+};
