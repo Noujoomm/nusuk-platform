@@ -27,8 +27,8 @@ export default function CommentThread({ entityType, entityId }: Props) {
         commentsApi.list(entityType, entityId),
         commentsApi.count(entityType, entityId),
       ]);
-      setComments(listRes.data);
-      setCount(countRes.data.count);
+      setComments(listRes.data?.data || []);
+      setCount(countRes.data?.count ?? listRes.data?.total ?? 0);
     } catch {
       toast.error('فشل تحميل التعليقات');
     } finally {

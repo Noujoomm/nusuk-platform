@@ -226,6 +226,7 @@ export const filesApi = {
     if (analysisType) form.append('analysisType', analysisType);
     return api.post('/files/analyze', form, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
+  download: (id: string) => api.get(`/files/${id}/download`, { responseType: 'blob' }),
   updateStatus: (id: string, status: string) => api.patch(`/files/${id}/status`, { status }),
   delete: (id: string) => api.delete(`/files/${id}`),
 };

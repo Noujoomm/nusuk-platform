@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import { tracksApi, recordsApi, employeesApi, deliverablesApi, scopesApi, penaltiesApi, trackKpisApi, dailyUpdatesApi, filesApi, tasksApi, usersApi } from '@/lib/api';
+import { tracksApi, recordsApi, employeesApi, deliverablesApi, scopesApi, penaltiesApi, trackKpisApi, dailyUpdatesApi, filesApi, tasksApi, usersApi, commentsApi } from '@/lib/api';
 import { useAuth } from '@/stores/auth';
 import { getSocket, joinTrack, leaveTrack } from '@/lib/socket';
 import { STATUS_LABELS, PRIORITY_LABELS, STATUS_COLORS, PRIORITY_COLORS, CONTRACT_TYPE_LABELS, formatDate, formatNumber, TASK_STATUS_LABELS, TASK_STATUS_COLORS, cn } from '@/lib/utils';
@@ -10,6 +10,7 @@ import {
   Plus, Search, Edit3, Trash2, ChevronLeft, ChevronRight, X,
   Users, Package, Target, AlertTriangle, ClipboardList, ChevronDown,
   BarChart3, FileText, TrendingUp, Upload, Paperclip, Clock, CheckCircle2, AlertCircle, XCircle, Send,
+  Download, MessageCircle,
 } from 'lucide-react';
 import RecordModal from '@/components/record-modal';
 import RecordDetailPanel from '@/components/record-detail-panel';
@@ -21,6 +22,7 @@ import TaskCard from '@/components/tasks/task-card';
 import TaskModal from '@/components/tasks/task-modal';
 import TaskDetailPanel from '@/components/tasks/task-detail-panel';
 import { Task } from '@/stores/tasks';
+import CommentThread from '@/components/comments/comment-thread';
 
 interface Track {
   id: string;
@@ -86,7 +88,7 @@ export default function TrackDetailPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editRecord, setEditRecord] = useState<RecordItem | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<RecordItem | null>(null);
-  const [activeTab, setActiveTab] = useState<'records' | 'tasks' | 'details' | 'stats' | 'scope' | 'updates'>('records');
+  const [activeTab, setActiveTab] = useState<'records' | 'tasks' | 'details' | 'stats' | 'scope' | 'updates' | 'comments' | 'attachments'>('records');
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   // Daily updates state
@@ -115,6 +117,13 @@ export default function TrackDetailPage() {
   // Track progress state
   const [trackProgress, setTrackProgress] = useState<any>(null);
   const [trackProgressLoading, setTrackProgressLoading] = useState(false);
+
+  // Track attachments state
+  const [trackFiles, setTrackFiles] = useState<any[]>([]);
+  const [trackFilesLoading, setTrackFilesLoading] = useState(false);
+  const [uploadingTrackFile, setUploadingTrackFile] = useState(false);
+  const [trackFileNotes, setTrackFileNotes] = useState('');
+  const [deletingTrackFileId, setDeletingTrackFileId] = useState<string | null>(null);
 
   const canEdit = hasPermission(id, 'edit');
   const canCreate = hasPermission(id, 'create');
@@ -226,6 +235,82 @@ export default function TrackDetailPage() {
       }).catch(() => {});
     }
   }, [activeTab, allUsers.length]);
+
+  // Load track attachments
+  const loadTrackFiles = useCallback(async () => {
+    setTrackFilesLoading(true);
+    try {
+      const { data } = await filesApi.list({ trackId: id, pageSize: 100 });
+      setTrackFiles(data.data || []);
+    } catch {}
+    setTrackFilesLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'attachments') loadTrackFiles();
+  }, [activeTab, loadTrackFiles]);
+
+  const ALLOWED_TRACK_EXTENSIONS = ['pdf', 'docx', 'xlsx', 'pptx', 'png', 'jpg', 'jpeg', 'zip'];
+  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+
+  const handleTrackFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (!ALLOWED_TRACK_EXTENSIONS.includes(ext)) {
+      toast.error(`الصيغة غير مسموح بها. الصيغ المسموحة: ${ALLOWED_TRACK_EXTENSIONS.join(', ')}`);
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error('الحد الأقصى لحجم الملف 25 ميجابايت');
+      return;
+    }
+
+    setUploadingTrackFile(true);
+    try {
+      await filesApi.upload(file, { trackId: id, category: 'track_attachment', notes: trackFileNotes || undefined });
+      toast.success('تم رفع الملف');
+      setTrackFileNotes('');
+      loadTrackFiles();
+    } catch {
+      toast.error('فشل رفع الملف');
+    }
+    setUploadingTrackFile(false);
+  };
+
+  const handleDownloadFile = async (fileRecord: any) => {
+    try {
+      const { data } = await filesApi.download(fileRecord.id);
+      const url = window.URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileRecord.fileName;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      toast.error('فشل تحميل الملف');
+    }
+  };
+
+  const handleDeleteTrackFile = async (fileId: string) => {
+    setDeletingTrackFileId(fileId);
+    try {
+      await filesApi.delete(fileId);
+      toast.success('تم حذف الملف');
+      loadTrackFiles();
+    } catch {
+      toast.error('فشل حذف الملف');
+    }
+    setDeletingTrackFileId(null);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+  };
 
   const handleSubmitUpdate = async () => {
     if (!updateForm.titleAr.trim() || !updateForm.content.trim()) {
@@ -417,6 +502,8 @@ export default function TrackDetailPage() {
           { key: 'records' as const, label: `السجلات (${total})` },
           { key: 'tasks' as const, label: 'المهام' },
           { key: 'updates' as const, label: 'التحديثات اليومية' },
+          { key: 'attachments' as const, label: 'المرفقات' },
+          { key: 'comments' as const, label: 'التعليقات' },
           { key: 'scope' as const, label: 'نطاق العمل' },
           { key: 'stats' as const, label: 'الإحصائيات' },
           { key: 'details' as const, label: 'تفاصيل المسار' },
@@ -873,6 +960,130 @@ export default function TrackDetailPage() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Attachments Tab */}
+      {activeTab === 'attachments' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <Paperclip className="w-5 h-5 text-brand-300" />
+              المرفقات
+            </h3>
+          </div>
+
+          {/* Upload area */}
+          <div className="glass rounded-xl border border-white/10 p-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                placeholder="ملاحظات (اختياري)"
+                value={trackFileNotes}
+                onChange={(e) => setTrackFileNotes(e.target.value)}
+                className="input-field flex-1"
+              />
+              <label className={cn(
+                'flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-colors',
+                uploadingTrackFile ? 'bg-gray-500/20 text-gray-400 cursor-not-allowed' : 'bg-brand-500/20 text-brand-300 hover:bg-brand-500/30'
+              )}>
+                {uploadingTrackFile ? (
+                  <div className="w-4 h-4 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4" />
+                )}
+                رفع ملف
+                <input type="file" className="hidden" onChange={handleTrackFileUpload} disabled={uploadingTrackFile}
+                  accept=".pdf,.docx,.xlsx,.pptx,.png,.jpg,.jpeg,.zip" />
+              </label>
+            </div>
+            <p className="text-[11px] text-gray-500">
+              الصيغ المسموحة: PDF, DOCX, XLSX, PPTX, PNG, JPG, ZIP — الحد الأقصى: 25 ميجابايت
+            </p>
+          </div>
+
+          {/* Files list */}
+          {trackFilesLoading ? (
+            <div className="flex items-center justify-center h-40">
+              <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : trackFiles.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-16 text-gray-400">
+              <Paperclip className="h-12 w-12" />
+              <p className="text-sm">لا توجد مرفقات بعد</p>
+            </div>
+          ) : (
+            <div className="glass overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-white/10">
+                      <th className="text-right p-4 text-sm font-medium text-gray-400">اسم الملف</th>
+                      <th className="text-right p-4 text-sm font-medium text-gray-400">النوع</th>
+                      <th className="text-right p-4 text-sm font-medium text-gray-400">الحجم</th>
+                      <th className="text-right p-4 text-sm font-medium text-gray-400">الرافع</th>
+                      <th className="text-right p-4 text-sm font-medium text-gray-400">التاريخ</th>
+                      <th className="text-right p-4 text-sm font-medium text-gray-400">ملاحظات</th>
+                      <th className="text-right p-4 text-sm font-medium text-gray-400">إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trackFiles.map((f: any) => (
+                      <tr key={f.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <td className="p-4">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                            <span className="text-sm font-medium truncate max-w-[200px]" dir="ltr">{f.fileName}</span>
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <span className="text-xs text-gray-400 bg-white/5 px-2 py-1 rounded" dir="ltr">
+                            {f.fileName?.split('.').pop()?.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="p-4 text-sm text-gray-400" dir="ltr">{formatFileSize(f.fileSize)}</td>
+                        <td className="p-4 text-sm text-gray-300">{f.uploadedBy?.nameAr || f.uploadedBy?.name || '-'}</td>
+                        <td className="p-4 text-sm text-gray-400">{formatDate(f.createdAt)}</td>
+                        <td className="p-4 text-sm text-gray-400 max-w-[150px] truncate">{f.notes || '-'}</td>
+                        <td className="p-4">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleDownloadFile(f)}
+                              className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-brand-300 transition-colors"
+                              title="تحميل"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => handleDeleteTrackFile(f.id)}
+                                disabled={deletingTrackFileId === f.id}
+                                className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition-colors disabled:opacity-30"
+                                title="حذف"
+                              >
+                                {deletingTrackFileId === f.id ? (
+                                  <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Comments Tab */}
+      {activeTab === 'comments' && (
+        <div className="max-w-3xl">
+          <CommentThread entityType="track" entityId={id} />
         </div>
       )}
 

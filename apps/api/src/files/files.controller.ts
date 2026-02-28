@@ -1,14 +1,15 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, UseInterceptors, UploadedFile as UpFile, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, UseInterceptors, UploadedFile as UpFile, Req, Res, NotFoundException } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { extname, join, resolve as pathResolve } from 'path';
+import { existsSync, createReadStream, realpathSync } from 'fs';
 import { FilesService } from './files.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 
 @Controller('files')
 @UseGuards(JwtAuthGuard)
@@ -139,6 +140,30 @@ export class FilesController {
     });
 
     return { fileName: file.originalname, fileSize: file.size, analysis: result };
+  }
+
+  @Get(':id/download')
+  async download(@Param('id') id: string, @Res() res: Response) {
+    const file = await this.files.findById(id);
+    if (!file) throw new NotFoundException('الملف غير موجود');
+
+    const uploadDir = realpathSync(join(process.cwd(), 'uploads'));
+    const filePath = realpathSync(file.filePath);
+
+    if (!filePath.startsWith(uploadDir)) {
+      throw new NotFoundException('الملف غير موجود');
+    }
+
+    if (!existsSync(filePath)) {
+      throw new NotFoundException('الملف غير موجود على الخادم');
+    }
+
+    res.set({
+      'Content-Type': file.mimeType || 'application/octet-stream',
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(file.fileName)}`,
+      'Content-Length': file.fileSize.toString(),
+    });
+    createReadStream(filePath).pipe(res);
   }
 
   @Patch(':id/status')

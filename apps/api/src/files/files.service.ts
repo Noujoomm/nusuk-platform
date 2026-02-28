@@ -42,6 +42,10 @@ export class FilesService {
     return { data, total, page, pageSize };
   }
 
+  async findById(id: string) {
+    return this.prisma.uploadedFile.findUnique({ where: { id } });
+  }
+
   async create(data: {
     trackId?: string;
     uploadedById: string;
