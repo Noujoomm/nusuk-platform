@@ -111,38 +111,65 @@ export class PdfVisionParserService {
       throw new Error('Vision parser غير متوفر — ANTHROPIC_API_KEY غير معرّف.');
     }
 
-    const base64 = buffer.toString('base64');
     const startedAt = Date.now();
     this.logger.log(
-      `استدعاء ${this.model} لاستخراج سجلات PDF (${(buffer.length / 1024).toFixed(0)} KB)`,
+      `[1/4] تحضير base64 (${(buffer.length / 1024).toFixed(0)} KB)`,
     );
+    const base64 = buffer.toString('base64');
 
-    const message = await this.client.messages.create(
-      {
-        model: this.model,
-        max_tokens: MAX_TOKENS,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'document',
-                source: {
-                  type: 'base64',
-                  media_type: 'application/pdf',
-                  data: base64,
+    this.logger.log(`[2/4] إرسال الطلب لـ ${this.model}`);
+
+    // Belt-and-suspenders timeout: the SDK's `timeout` option occasionally
+    // fails to abort underlying connections cleanly, so we also race against
+    // a manual setTimeout + AbortController. Whichever fires first wins.
+    const controller = new AbortController();
+    const hardTimeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let message;
+    try {
+      const visionPromise = this.client.messages.create(
+        {
+          model: this.model,
+          max_tokens: MAX_TOKENS,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'document',
+                  source: {
+                    type: 'base64',
+                    media_type: 'application/pdf',
+                    data: base64,
+                  },
                 },
-              },
-              { type: 'text', text: EXTRACTION_PROMPT },
-            ],
-          },
-        ],
-      },
-      { timeout: REQUEST_TIMEOUT_MS },
-    );
+                { type: 'text', text: EXTRACTION_PROMPT },
+              ],
+            },
+          ],
+        },
+        { timeout: REQUEST_TIMEOUT_MS, signal: controller.signal, maxRetries: 0 },
+      );
+
+      const racePromise = new Promise<never>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                `Vision API لم يستجب خلال ${REQUEST_TIMEOUT_MS}ms (Promise.race fallback)`,
+              ),
+            ),
+          REQUEST_TIMEOUT_MS + 1_000,
+        ),
+      );
+
+      message = await Promise.race([visionPromise, racePromise]);
+    } finally {
+      clearTimeout(hardTimeout);
+    }
 
     this.logger.log(
-      `Vision API عاد بعد ${Date.now() - startedAt}ms ` +
+      `[3/4] Vision API عاد بعد ${Date.now() - startedAt}ms ` +
         `(${message.usage.input_tokens}→${message.usage.output_tokens} tokens)`,
     );
 
@@ -151,8 +178,14 @@ export class PdfVisionParserService {
       throw new Error('استجابة Vision API لا تحوي نصاً.');
     }
 
+    this.logger.log(`[4/4] تحليل JSON (${textBlock.text.length} chars)`);
     const data = parseJsonResponse(textBlock.text);
-    return mapToParsedPunches(data, this.logger);
+    const result = mapToParsedPunches(data, this.logger);
+    this.logger.log(
+      `Vision parser انتهى: ${result.punches.length} سجل، ` +
+        `${result.warnings.length} تحذير، ${Date.now() - startedAt}ms إجمالاً`,
+    );
+    return result;
   }
 }
 
