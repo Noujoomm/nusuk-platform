@@ -13,9 +13,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { ParsedPunch } from '../utils/pdf-text-cleaner';
 
-/** نموذج الموديل المستخدم — أحدث Opus متاح للدقة القصوى مع العربي. */
-const DEFAULT_MODEL = 'claude-opus-4-5';
+/** Sonnet 4.5 يعطي توازناً ممتازاً بين السرعة والدقة مع العربي.
+ * Opus أبطأ 3-5x ويسبب timeout على الـ proxy. لو احتجت دقة أعلى للحالات
+ * الصعبة، اضبط CLAUDE_PDF_MODEL=claude-opus-4-5 يدوياً. */
+const DEFAULT_MODEL = 'claude-sonnet-4-5';
 const MAX_TOKENS = 16_000;
+/** timeout صريح للـ SDK call. أقل من Railway request timeout (60s) ليتسنى
+ * للـ fallback أن يعمل قبل ما الـ proxy يقتل الطلب. */
+const REQUEST_TIMEOUT_MS = 50_000;
 
 const EXTRACTION_PROMPT = `أنت محلل بيانات حضور دقيق جداً. أمامك تقرير بصمات من منصة "رؤية" (RTL، عربي).
 
@@ -107,30 +112,39 @@ export class PdfVisionParserService {
     }
 
     const base64 = buffer.toString('base64');
+    const startedAt = Date.now();
     this.logger.log(
       `استدعاء ${this.model} لاستخراج سجلات PDF (${(buffer.length / 1024).toFixed(0)} KB)`,
     );
 
-    const message = await this.client.messages.create({
-      model: this.model,
-      max_tokens: MAX_TOKENS,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: base64,
+    const message = await this.client.messages.create(
+      {
+        model: this.model,
+        max_tokens: MAX_TOKENS,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'document',
+                source: {
+                  type: 'base64',
+                  media_type: 'application/pdf',
+                  data: base64,
+                },
               },
-            },
-            { type: 'text', text: EXTRACTION_PROMPT },
-          ],
-        },
-      ],
-    });
+              { type: 'text', text: EXTRACTION_PROMPT },
+            ],
+          },
+        ],
+      },
+      { timeout: REQUEST_TIMEOUT_MS },
+    );
+
+    this.logger.log(
+      `Vision API عاد بعد ${Date.now() - startedAt}ms ` +
+        `(${message.usage.input_tokens}→${message.usage.output_tokens} tokens)`,
+    );
 
     const textBlock = message.content.find((b) => b.type === 'text');
     if (!textBlock || textBlock.type !== 'text') {
