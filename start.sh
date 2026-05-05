@@ -2,14 +2,18 @@
 # Single-container process supervisor.
 #
 # The API (Nest, internal port) and the Next.js standalone server (public PORT)
-# run in one Railway container. Next.js proxies /api/*, /health, /socket.io,
-# and /uploads/* to the API via next.config.js rewrites. This script starts the
-# API, waits for it to become healthy locally, then execs the web server in the
-# foreground so Railway's signals reach it directly.
+# run in one Render service. Next.js proxies /api/*, /uploads/*, /socket.io,
+# and /health to the API via next.config.js rewrites. This script starts the
+# API, waits for it to become healthy locally, then execs the web server in
+# the foreground so Render's SIGTERM reaches it directly for clean shutdown.
 #
-# DB migration (prisma db push), seed, and backfills DO NOT run here — they run
-# in Railway's preDeployCommand (`npm run db:deploy`) once per deploy. Running
-# them per-container on multi-replica setups is wrong and slow.
+# Render health check: /api/health (a native Next.js route — does NOT proxy
+# to the API). So even if the API is briefly restarting, the web stays
+# "healthy" from Render's perspective and the container is not torn down.
+#
+# DB migration (prisma db push), seed, and backfills DO NOT run here — they
+# run in Render's preDeployCommand (`npm run db:deploy`) once per deploy.
+# Running them per-container on multi-replica setups is wrong and slow.
 
 set -euo pipefail
 
@@ -37,7 +41,7 @@ API_PORT="$API_PORT" node apps/api/dist/src/main.js > /tmp/api.log 2>&1 &
 API_PID=$!
 
 # Wait up to 60s for /health. Surface the API log if it crashes so the
-# Railway deploy log contains the actual error, not "API not ready".
+# Render deploy log contains the actual error, not "API not ready".
 for _ in $(seq 1 60); do
   if curl -sf "http://127.0.0.1:${API_PORT}/health" > /dev/null 2>&1; then
     echo "API healthy on :$API_PORT (pid $API_PID)"
@@ -53,7 +57,7 @@ done
 
 # If the container dies, kill the API too.
 trap 'kill $API_PID 2>/dev/null || true' EXIT
-# Stream API logs to stdout so Railway captures them.
+# Stream API logs to stdout so Render captures them.
 tail -f /tmp/api.log &
 
 # ─── Web (foreground) ─────────────────────────────────────────────────────
@@ -73,6 +77,7 @@ if [ -n "$STANDALONE_ROOT" ]; then
   mkdir -p "$STANDALONE_ROOT/.next"
   cp -r apps/web/.next/static "$STANDALONE_ROOT/.next/static" 2>/dev/null || true
   cp -r apps/web/public "$STANDALONE_ROOT/public" 2>/dev/null || true
+  # exec → web server becomes PID 1 so Render's SIGTERM stops it cleanly
   PORT="$PORT" HOSTNAME=0.0.0.0 exec node "$STANDALONE_ROOT/server.js"
 fi
 
