@@ -60,7 +60,21 @@ function FundsModule() {
   useEffect(() => { load(); }, [load]);
 
   const openDetail = useCallback(async (id: string) => {
-    try { const { data } = await custodyFundsApi.get(id); setSelected(data); } catch { toast.error('فشل'); }
+    try {
+      const { data } = await custodyFundsApi.get(id);
+      setSelected(data);
+    } catch (e: any) {
+      // eslint-disable-next-line no-console
+      console.error('[funds] openDetail failed', { id, status: e?.response?.status, data: e?.response?.data, error: e });
+      const status = e?.response?.status;
+      const serverMsg = e?.response?.data?.message;
+      const friendly =
+        status === 401 ? 'انتهت الجلسة — أعد تسجيل الدخول.' :
+        status === 403 ? 'ليس لديك صلاحية لعرض هذه العهدة.' :
+        status === 404 ? 'العهدة غير موجودة.' :
+        serverMsg || 'تعذّر تحميل تفاصيل العهدة. تحقّق من اتصالك.';
+      toast.error(friendly);
+    }
   }, []);
 
   const handleCreate = async () => {
