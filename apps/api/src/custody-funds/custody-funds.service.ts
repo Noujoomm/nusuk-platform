@@ -1,8 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 
 @Injectable()
 export class CustodyFundsService {
+  private readonly logger = new Logger(CustodyFundsService.name);
+
   constructor(private prisma: PrismaService) {}
 
   // ═══ FUNDS ═══════════════════════════════════════════════
@@ -31,6 +33,16 @@ export class CustodyFundsService {
   }
 
   async getFund(id: string) {
+    // Detail view used to `include: invoices` which silently pulled the
+    // `attachmentData` Bytes column on every row. With AI-batch saving 5–7 MB
+    // PDFs per invoice, a single fund with ~10 invoices was returning ~50 MB
+    // of base64 over the wire on every card click — well past the 15 s axios
+    // timeout. The actual file is streamed by GET /invoices/:iid/download
+    // when the user explicitly opens it, so the detail payload doesn't need
+    // it at all. We use `omit` (Prisma 6+) to drop just the heavy column and
+    // keep every other field intact — no front-end changes required.
+    const startedAt = Date.now();
+
     const fund = await this.prisma.custodyFund.findUnique({
       where: { id },
       include: {
@@ -41,6 +53,7 @@ export class CustodyFundsService {
           orderBy: { addedAt: 'asc' },
         },
         invoices: {
+          omit: { attachmentData: true },
           include: {
             createdBy: { select: { id: true, nameAr: true } },
             custodyMember: { include: { user: { select: { id: true, nameAr: true } } } },
@@ -51,6 +64,12 @@ export class CustodyFundsService {
         _count: { select: { transactions: true, members: true, invoices: true } },
       },
     });
+
+    const elapsedMs = Date.now() - startedAt;
+    if (elapsedMs > 2_000) {
+      this.logger.warn(`getFund(${id}) slow: ${elapsedMs}ms`);
+    }
+
     if (!fund) throw new NotFoundException('العهدة غير موجودة');
     return fund;
   }
