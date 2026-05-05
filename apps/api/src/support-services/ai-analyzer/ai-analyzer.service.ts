@@ -546,13 +546,36 @@ export class AIAnalyzerService {
 
   private async withRetries<T>(fn: () => Promise<T>): Promise<T> {
     let lastErr: unknown;
-    for (let i = 0; i < MAX_VISION_ITERATIONS; i++) {
+    // 4 attempts total — keeps the worst-case wait under ~75s (8s + 16s + 32s
+    // for 429s; 0.5/1/1.5s for transient network errors).
+    const max = MAX_VISION_ITERATIONS + 1;
+    for (let i = 0; i < max; i++) {
       try {
         return await fn();
       } catch (e: any) {
         lastErr = e;
         if (e instanceof BadRequestException) throw e;
-        await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+        // Anthropic 429 rate limit: per-minute window. Linear 500ms backoff
+        // is way too short — the burst won't decay before we retry. Use
+        // exponential 8/16/32s and respect retry-after if the SDK passes it.
+        const status: number | undefined = e?.status ?? e?.response?.status;
+        const retryAfterHeader =
+          e?.headers?.['retry-after'] ?? e?.response?.headers?.['retry-after'];
+        const isRateLimit = status === 429;
+        let delayMs: number;
+        if (isRateLimit) {
+          const headerSec = retryAfterHeader ? Number(retryAfterHeader) : NaN;
+          delayMs = Number.isFinite(headerSec) && headerSec > 0
+            ? headerSec * 1000
+            : Math.min(32_000, 8_000 * 2 ** i);
+          this.logger.warn(
+            `[ai-invoice] rate limited (429), backing off ${delayMs}ms ` +
+              `(attempt ${i + 1}/${max})`,
+          );
+        } else {
+          delayMs = 500 * (i + 1);
+        }
+        await new Promise((r) => setTimeout(r, delayMs));
       }
     }
     throw lastErr ?? new Error('unknown');
