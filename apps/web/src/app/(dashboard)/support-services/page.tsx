@@ -68,7 +68,10 @@ function FundsModule() {
       console.error('[funds] openDetail failed', { id, status: e?.response?.status, data: e?.response?.data, error: e });
       const status = e?.response?.status;
       const serverMsg = e?.response?.data?.message;
+      // axios timeout shows up as code 'ECONNABORTED' with no response.
+      const isTimeout = e?.code === 'ECONNABORTED' || /timeout/i.test(e?.message || '');
       const friendly =
+        isTimeout ? 'تأخر تحميل تفاصيل العهدة، يرجى المحاولة مرة أخرى.' :
         status === 401 ? 'انتهت الجلسة — أعد تسجيل الدخول.' :
         status === 403 ? 'ليس لديك صلاحية لعرض هذه العهدة.' :
         status === 404 ? 'العهدة غير موجودة.' :
