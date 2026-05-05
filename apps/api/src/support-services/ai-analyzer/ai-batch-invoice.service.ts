@@ -468,6 +468,12 @@ export class AIBatchInvoiceService {
       filesToPersist.push({ it, inv, buffer });
     }
 
+    // Batches commonly hold 5–20 PDFs at 1–5 MB each. Each create() writes
+    // the bytea attachment, so the transaction can easily exceed the default
+    // Prisma 5s window. Bump generously — 60s comfortably covers a typical
+    // 20-invoice batch on Render Postgres + leaves slack for the metadata
+    // update at the end. maxWait stays low so we fail fast if the connection
+    // pool is saturated rather than silently queueing.
     const created = await this.prisma.$transaction(async (tx) => {
       const ids: string[] = [];
       for (const { it, inv, buffer } of filesToPersist) {
@@ -523,7 +529,7 @@ export class AIBatchInvoiceService {
         },
       });
       return ids;
-    });
+    }, { timeout: 60_000, maxWait: 5_000 });
 
     // Cleanup pending sessions + temp files (best-effort; failure here doesn't
     // affect the user-visible save outcome).
