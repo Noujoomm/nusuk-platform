@@ -1,6 +1,5 @@
 export interface TimelinePoint { date: string; count: number }
 export interface ChartItem { name: string; color: string; value: number }
-export interface Insight { type: 'success' | 'warning' | 'info'; icon: string; title_ar: string; description_ar: string }
 
 export interface TrackPerf {
   id: string; name_ar: string; color: string;
@@ -33,7 +32,6 @@ export interface Analytics {
     tasks_by_status: Record<string, number>; tasks_by_priority: Record<string, number>;
     tasks_completed_by_track: ChartItem[]; updates_timeline: TimelinePoint[];
   };
-  insights: Insight[];
   track_performance: TrackPerf[];
   summary: { total_daily_updates: number; total_files: number };
   activity_feed: ActivityItem[];

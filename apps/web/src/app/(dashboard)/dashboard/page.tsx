@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { BarChart3, RefreshCw, Zap, Target, Activity, Lightbulb } from 'lucide-react';
+import { BarChart3, RefreshCw, Zap, Target, Activity } from 'lucide-react';
 import { tasksApi, analyticsApi } from '@/lib/api';
 import { useAuth } from '@/stores/auth';
 import { cn, formatNumber, formatPercent } from '@/lib/utils';
 import {
-  DashboardCards, ChartsSection, TracksTable,
-  InsightsPanel, ActivityFeed,
+  DashboardCards, ChartsSection, TracksTable, ActivityFeed,
 } from '@/components/dashboards/executive';
 import type { Analytics } from '@/components/dashboards/executive';
 import { QualityFirstCards } from '@/components/dashboards/executive/QualityFirstCards';
@@ -151,10 +150,6 @@ export default function ExecutiveDashboardPage() {
           <p className="text-[10px] text-gray-500 mt-1">{formatNumber(analytics.reports.completed_ai_reports)} من {formatNumber(analytics.reports.total_ai_reports)}</p>
         </div>
       </div>
-
-      {/* ─── Smart Insights ──────────────────────── */}
-      <SectionTitle title="التنبيهات والتحليلات الذكية" icon={Lightbulb} id="insights" />
-      <InsightsPanel insights={analytics.insights} />
 
       {/* ─── Quality-First Performance ───────────── */}
       <SectionTitle title="أداء المسارات (الجودة أولاً)" icon={Target} id="quality-performance" />
