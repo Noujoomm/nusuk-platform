@@ -14,6 +14,7 @@ import {
 import { AnalyticsService } from './analytics.service';
 import { TrackPerformanceService } from './track-performance.service';
 import { DailyTracksSnapshotService } from './daily-tracks-snapshot.service';
+import { QualityFirstPerformanceService } from './quality-first/quality-first.service';
 import { PrismaService } from '../common/prisma.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -28,6 +29,7 @@ export class AnalyticsController {
     private analytics: AnalyticsService,
     private trackPerf: TrackPerformanceService,
     private dailyTracks: DailyTracksSnapshotService,
+    private qualityFirst: QualityFirstPerformanceService,
   ) {}
 
   @Get('dashboard')
@@ -89,5 +91,22 @@ export class AnalyticsController {
   ) {
     const days = Math.max(1, Math.min(365, Math.floor(body?.days ?? 30)));
     return this.dailyTracks.backfill(days);
+  }
+
+  // ── Top 3 data-entry performers (platform-wide, by quality) ─────────
+  /**
+   * Cross-track ranking of users by AVG quality of the reports they
+   * authored today. Reuses the same `calculateReportQuality` function
+   * the per-track best-employee card uses, so the metric is 1:1
+   * consistent across both cards. Same RBAC as best-employees
+   * (admin / system_manager / pm / track_lead).
+   */
+  @Get('top-data-entry-performers')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'system_manager', 'pm', 'track_lead')
+  topDataEntryPerformers(@Query('period') period?: string) {
+    return this.qualityFirst.getTopDataEntryPerformers(
+      period === 'daily' || !period ? 'daily' : 'daily',
+    );
   }
 }

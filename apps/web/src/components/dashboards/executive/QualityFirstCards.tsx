@@ -16,6 +16,7 @@
 
 import { useEffect, useState } from 'react';
 import { performanceApi } from '@/lib/api';
+import { TopDataEntryPerformersCard } from './TopDataEntryPerformersCard';
 
 // ─── Types mirror the controller response ───────────────────────────
 interface TrackTop {
@@ -139,6 +140,10 @@ export function QualityFirstCards() {
       <TopTracksCard tracks={data.topTracks} />
       <TopEngagingCard tracks={data.topEngagingTracks} />
       <BestEmployeesCard rows={data.bestEmployeesPerTrack} />
+      {/* Wraps to a second row on lg+. On mobile/sm, each card stacks
+          vertically. The new card visually pairs with BestEmployees
+          (both rank individuals by report quality). */}
+      <TopDataEntryPerformersCard />
     </div>
   );
 }

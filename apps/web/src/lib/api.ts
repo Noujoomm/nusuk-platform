@@ -655,6 +655,8 @@ export const analyticsApi = {
   dashboard: () => api.get('/analytics/dashboard'),
   trackPerformance: () => api.get('/analytics/track-performance'),
   trackPerformanceById: (id: string) => api.get(`/analytics/track-performance/${id}`),
+  topDataEntryPerformers: (period: 'daily' = 'daily') =>
+    api.get('/analytics/top-data-entry-performers', { params: { period } }),
 };
 
 // ─── Quality-First Track Performance ───

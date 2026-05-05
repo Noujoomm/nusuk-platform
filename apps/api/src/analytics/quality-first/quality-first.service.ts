@@ -21,8 +21,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import {
+  MIN_QUALITY_THRESHOLD,
   ReportForQuality,
   bucketOf,
+  calculateReportQuality,
 } from '../calculators/report-quality.calculator';
 import {
   TrackQualityResult,
@@ -511,6 +513,80 @@ export class QualityFirstPerformanceService {
       bestEmployee,
       members: activeMembers,
     };
+  }
+
+  // ─── Top 3 platform-wide data-entry performers ─────────────────────
+  /**
+   * Cross-track ranking of users by AVG quality of the reports they
+   * authored today. Reuses calculateReportQuality (the exact same
+   * function the per-track best-employee card uses) so the metric is
+   * 1:1 consistent across cards. Tiebreak: more reports wins.
+   */
+  async getTopDataEntryPerformers(
+    period: 'daily' = 'daily',
+  ): Promise<{
+    period: 'daily';
+    performers: Array<{
+      rank: number;
+      userId: string;
+      userName: string;
+      qualityScore: number;
+      reportCount: number;
+    }>;
+  }> {
+    void period; // only daily today; param kept for future weekly/monthly
+    const today = riyadhDateString(new Date());
+    const { start } = riyadhDateBoundaries(today);
+
+    const reports = await this.prisma.report.findMany({
+      where: { createdAt: { gte: start } },
+      select: {
+        authorId: true,
+        title: true,
+        trackId: true,
+        reportDate: true,
+        achievements: true,
+        kpiUpdates: true,
+        challenges: true,
+        notes: true,
+        upcomingTasks: true,
+        attachments: { select: { sizeBytes: true, mimeType: true } },
+        author: { select: { id: true, nameAr: true, isActive: true } },
+      },
+    });
+
+    type Bucket = { userId: string; userName: string; quality: number[] };
+    const byUser = new Map<string, Bucket>();
+
+    for (const r of reports) {
+      if (!r.author?.isActive) continue;
+      const q = calculateReportQuality(r as unknown as ReportForQuality);
+      if (q < MIN_QUALITY_THRESHOLD) continue;
+      const slot =
+        byUser.get(r.authorId) ??
+        ({ userId: r.authorId, userName: r.author.nameAr, quality: [] } as Bucket);
+      slot.quality.push(q);
+      byUser.set(r.authorId, slot);
+    }
+
+    const ranked = Array.from(byUser.values())
+      .map((b) => ({
+        userId: b.userId,
+        userName: b.userName,
+        qualityScore: b.quality.reduce((s, q) => s + q, 0) / b.quality.length,
+        reportCount: b.quality.length,
+      }))
+      .filter((p) => p.reportCount >= 1)
+      .sort(
+        (a, b) =>
+          b.qualityScore - a.qualityScore ||
+          b.reportCount - a.reportCount ||
+          a.userId.localeCompare(b.userId),
+      )
+      .slice(0, 3)
+      .map((p, i) => ({ rank: i + 1, ...p, qualityScore: round1(p.qualityScore) }));
+
+    return { period: 'daily', performers: ranked };
   }
 }
 
