@@ -1,4 +1,11 @@
-# Render.com Blueprint — Single Service (API + Web)
+# Render.com Blueprint — Single Service (NestJS API + Next.js web in one container)
+#
+# Architecture: start.sh launches the API on the internal API_PORT (4000),
+# waits for /health, then execs the Next.js standalone server on the public
+# PORT (Render-injected). Next.js proxies /api/*, /uploads/*, /socket.io/*
+# to the internal API (see apps/web/next.config.js). The render health check
+# hits /api/health which is a native Next.js route (does not depend on the
+# API being up), so a transient API restart never marks the service down.
 services:
   - type: web
     name: nusuk-platform-evc
@@ -10,6 +17,7 @@ services:
     autoDeploy: true
     buildCommand: npm install && cd apps/api && npx prisma generate && npm run build && cd ../web && npm run build
     startCommand: bash start.sh
+    healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
         fromDatabase:
