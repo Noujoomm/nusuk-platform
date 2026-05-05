@@ -37,6 +37,46 @@ const MAX_BATCH_FILES = 10;
 const MIN_BATCH_FILES = 1;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_TOTAL_BATCH_BYTES = 100 * 1024 * 1024;
+/**
+ * Anthropic's free/standard tier caps input at 30k tokens/minute. Each invoice
+ * burns ~5–15k input tokens (PDF + prompt), so 10 in flight at once is a near-
+ * guaranteed 429. Cap concurrency to a safe value so the rate limit never
+ * surfaces to the user — `withRetries` covers any rare overflow.
+ *
+ * Configurable via AI_BATCH_CONCURRENCY env if you upgrade the tier.
+ */
+const DEFAULT_BATCH_CONCURRENCY = Math.max(
+  1,
+  parseInt(process.env.AI_BATCH_CONCURRENCY || '2', 10),
+);
+
+
+/**
+ * Runs `worker(item, index)` over the input array with at most `limit` running
+ * at once. Order of results matches input. Uses Promise.allSettled semantics —
+ * one rejection never aborts the rest.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<PromiseSettledResult<R>[]> {
+  const results: PromiseSettledResult<R>[] = new Array(items.length);
+  let next = 0;
+  const run = async (): Promise<void> => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      try {
+        results[i] = { status: 'fulfilled', value: await worker(items[i], i) };
+      } catch (reason) {
+        results[i] = { status: 'rejected', reason };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, run));
+  return results;
+}
 
 interface BatchItemSuccess {
   index: number;
@@ -173,9 +213,13 @@ export class AIBatchInvoiceService {
 
     const startedAll = Date.now();
 
-    // Promise.allSettled — one failure must not kill the other invoices.
-    const settled = await Promise.allSettled(
-      preserved.map((p) => this.analyzeOne(fundId, userId, p)),
+    // Concurrency-limited (default 2) — Anthropic's 30k input tokens/minute
+    // ceiling makes full parallelism a near-guaranteed 429. One failure does
+    // not kill the rest (Promise.allSettled semantics).
+    const settled = await mapWithConcurrency(
+      preserved,
+      DEFAULT_BATCH_CONCURRENCY,
+      (p) => this.analyzeOne(fundId, userId, p),
     );
 
     const items: BatchItem[] = settled.map((r, i) => {
@@ -302,8 +346,10 @@ export class AIBatchInvoiceService {
       );
     }
 
-    const settled = await Promise.allSettled(
-      itemsToRetry.map(async (it) => {
+    const settled = await mapWithConcurrency(
+      itemsToRetry,
+      DEFAULT_BATCH_CONCURRENCY,
+      async (it) => {
         if (!fs.existsSync(it.retryFilePath)) {
           throw new BadRequestException(
             'انتهت صلاحية الملف الأصلي. يرجى إعادة رفع الفاتورة.',
@@ -326,7 +372,7 @@ export class AIBatchInvoiceService {
           analysisResult: result,
           processingTimeMs: Date.now() - started,
         };
-      }),
+      },
     );
 
     settled.forEach((r, i) => {
