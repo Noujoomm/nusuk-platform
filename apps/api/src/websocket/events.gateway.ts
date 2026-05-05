@@ -11,14 +11,39 @@ import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 
+/**
+ * CORS callback that mirrors the REST app's logic in main.ts:
+ *  - if CORS_ORIGINS contains '*' → reflect the request origin (browsers
+ *    refuse `Access-Control-Allow-Origin: *` together with credentials, so
+ *    we must echo the actual origin back).
+ *  - otherwise allow only listed origins.
+ *  - missing Origin (e.g. server-to-server) is allowed.
+ */
+const corsOriginCheck = (
+  origin: string | undefined,
+  cb: (err: Error | null, allow?: boolean) => void,
+): void => {
+  const list = (process.env.CORS_ORIGINS || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (!origin || list.includes('*') || list.includes(origin)) {
+    cb(null, true);
+    return;
+  }
+  cb(new Error(`Origin ${origin} not allowed by CORS`), false);
+};
+
 @WebSocketGateway({
   cors: {
-    origin: process.env.CORS_ORIGINS
-      ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim())
-      : ['http://localhost:3000'],
+    origin: corsOriginCheck,
     credentials: true,
   },
-  transports: ['websocket', 'polling'],
+  // polling first so the connection establishes via plain HTTP (which the
+  // Next.js rewrite proxies fine); the client will then attempt to upgrade
+  // to websocket. If the upgrade is blocked by the proxy/edge, the socket
+  // stays on polling — fully functional, just chattier.
+  transports: ['polling', 'websocket'],
   namespace: '/',
 })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
