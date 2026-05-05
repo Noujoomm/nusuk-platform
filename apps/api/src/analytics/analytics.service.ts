@@ -243,128 +243,13 @@ export class AnalyticsService {
     }));
 
     // ──────────────────────────────────────
-    // 4. SMART INSIGHTS
+    // 4. (REMOVED) Smart Alerts & Analytics — superseded by the
+    // quality-first dashboard cards (apps/web/src/components/dashboards/
+    // executive/QualityFirstCards.tsx) backed by /api/performance/today.
+    // The legacy 70/30 ranking, overdue/low-engagement/high-completion/
+    // stale-track insights are no longer surfaced; we kept the data
+    // available via the quality-first endpoints where applicable.
     // ──────────────────────────────────────
-    const insights: Array<{
-      type: 'success' | 'warning' | 'info';
-      icon: string;
-      title_ar: string;
-      description_ar: string;
-    }> = [];
-
-    // Top 3 tracks — today since 00:00 Asia/Riyadh: 70% reports + 30% daily
-    // interaction. Same composite formula and same normalization as before;
-    // only the window changes from "sliding 24h" to "calendar day in Makkah".
-    // Card visibly resets at midnight Makkah and fills back up through the day.
-    const [reportsDayByTrack, engagementDayByTrack] = await this.prisma.withRetry(
-      () => Promise.all([
-        this.prisma.report.groupBy({
-          by: ['trackId'],
-          where: { createdAt: { gte: startOfTodayMakkah } },
-          _count: true,
-        }),
-        this.prisma.dailyUpdate.groupBy({
-          by: ['trackId'],
-          where: { trackId: { not: null }, createdAt: { gte: startOfTodayMakkah } },
-          _count: true,
-        }),
-      ]),
-      'analytics.dailyRanking',
-    );
-    const reportsMap = Object.fromEntries(reportsDayByTrack.map((r) => [r.trackId, r._count]));
-    const engagementMap = Object.fromEntries(engagementDayByTrack.map((u) => [u.trackId, u._count]));
-
-    const maxReports = Math.max(1, ...Object.values(reportsMap) as number[]);
-    const maxEngagement = Math.max(1, ...Object.values(engagementMap) as number[]);
-
-    const rankedTracks = allTracks
-      .map((t) => {
-        const reportsScore = ((reportsMap[t.id] || 0) / maxReports) * 100;
-        const interactionScore = ((engagementMap[t.id] || 0) / maxEngagement) * 100;
-        const finalScore = Math.round((reportsScore * 0.70 + interactionScore * 0.30) * 10) / 10;
-        return { name: t.nameAr, score: finalScore, hasActivity: (reportsMap[t.id] || 0) > 0 || (engagementMap[t.id] || 0) > 0 };
-      })
-      .filter((t) => t.hasActivity)
-      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-      .slice(0, 3);
-
-    if (rankedTracks.length > 0) {
-      const topList = rankedTracks.map((t, i) => `${i + 1}. ${t.name} (${t.score}%)`).join(' — ');
-      insights.push({
-        type: 'success',
-        icon: 'trophy',
-        title_ar: 'أفضل ٣ مسارات أداءً (يومي)',
-        description_ar: `${topList}\n٧٠٪ التقارير + ٣٠٪ التفاعل — منذ منتصف الليل بتوقيت مكة`,
-      });
-    }
-
-    // Overdue warning per track
-    const overdueByTrack = await this.prisma.withRetry(
-      () => this.prisma.task.groupBy({
-        by: ['trackId'],
-        where: {
-          ...taskWhere,
-          dueDate: { lt: now },
-          status: { notIn: ['completed', 'cancelled'] },
-          trackId: { not: null },
-        },
-        _count: true,
-        orderBy: { _count: { trackId: 'desc' } },
-        take: 1,
-      }),
-      'analytics.overdueWarning',
-    );
-    if (overdueByTrack.length > 0 && overdueByTrack[0]._count > 0) {
-      const tId = overdueByTrack[0].trackId!;
-      const trackInfo = allTracks.find((t) => t.id === tId);
-      insights.push({
-        type: 'warning',
-        icon: 'alert-triangle',
-        title_ar: 'تأخر في المهام',
-        description_ar: `المسار "${trackInfo?.nameAr || 'غير محدد'}" لديه ${overdueByTrack[0]._count} مهام متأخرة`,
-      });
-    }
-
-    // Low engagement
-    if (engagementRate < 50 && trackCount > 0) {
-      insights.push({
-        type: 'info',
-        icon: 'lightbulb',
-        title_ar: 'تحسين المتابعة اليومية',
-        description_ar: `نسبة الالتزام بالتحديثات اليومية ${engagementRate}% — يُنصح بمتابعة الفرق`,
-      });
-    }
-
-    // High completion
-    if (taskCompletionRate >= 75) {
-      insights.push({
-        type: 'success',
-        icon: 'check-circle',
-        title_ar: 'أداء ممتاز',
-        description_ar: `نسبة إنجاز المهام ${taskCompletionRate}% — استمروا في العمل المتميز`,
-      });
-    }
-
-    // Tracks without recent updates
-    const tracksWithUpdates = await this.prisma.withRetry(
-      () => this.prisma.dailyUpdate.groupBy({
-        by: ['trackId'],
-        where: { createdAt: { gte: sevenDaysAgo }, trackId: { not: null } },
-      }),
-      'analytics.tracksUpdates',
-    );
-    const tracksWithUpdatesSet = new Set(tracksWithUpdates.map((t) => t.trackId));
-    const tracksWithoutUpdates = allTracks
-      .filter((t) => !tracksWithUpdatesSet.has(t.id))
-      .map((t) => t.nameAr);
-    if (tracksWithoutUpdates.length > 0) {
-      insights.push({
-        type: 'info',
-        icon: 'clock',
-        title_ar: 'مسارات بدون تحديثات حديثة',
-        description_ar: `المسارات التالية لم ترسل تحديثات خلال ٧ أيام: ${tracksWithoutUpdates.slice(0, 3).join('، ')}`,
-      });
-    }
 
     // ──────────────────────────────────────
     // 5. TRACK PERFORMANCE COMPARISON
@@ -527,7 +412,6 @@ export class AnalyticsService {
         tasks_completed_by_track: tasksCompletedByTrackData,
         updates_timeline: updatesTimeline,
       },
-      insights,
       track_performance: trackPerformance,
       summary: {
         total_daily_updates: totalDailyUpdates,
