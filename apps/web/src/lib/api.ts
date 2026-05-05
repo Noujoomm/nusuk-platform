@@ -657,6 +657,19 @@ export const analyticsApi = {
   trackPerformanceById: (id: string) => api.get(`/analytics/track-performance/${id}`),
 };
 
+// ─── Quality-First Track Performance ───
+export const performanceApi = {
+  today: () => api.get('/performance/today'),
+  topTracks: () => api.get('/performance/today/top-3-tracks'),
+  topEngaging: () => api.get('/performance/today/top-3-engaging'),
+  bestEmployees: () => api.get('/performance/today/best-employees'),
+  trackToday: (trackId: string) => api.get(`/performance/track/${trackId}/today`),
+  history: (from: string, to: string) =>
+    api.get('/performance/history', { params: { from, to } }),
+  recalculate: (date?: string) =>
+    api.post('/performance/recalculate', null, { params: date ? { date } : {} }),
+};
+
 // ─── Distribution: Achievement + Deviation ───
 export const distAchievementApi = {
   dashboard: () => api.get('/distribution/achievement/dashboard'),

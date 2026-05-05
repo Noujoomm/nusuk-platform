@@ -10,6 +10,7 @@ import {
   InsightsPanel, ActivityFeed,
 } from '@/components/dashboards/executive';
 import type { Analytics } from '@/components/dashboards/executive';
+import { QualityFirstCards } from '@/components/dashboards/executive/QualityFirstCards';
 
 const AUTO_REFRESH_INTERVAL = 15_000;
 
@@ -154,6 +155,10 @@ export default function ExecutiveDashboardPage() {
       {/* ─── Smart Insights ──────────────────────── */}
       <SectionTitle title="التنبيهات والتحليلات الذكية" icon={Lightbulb} id="insights" />
       <InsightsPanel insights={analytics.insights} />
+
+      {/* ─── Quality-First Performance ───────────── */}
+      <SectionTitle title="أداء المسارات (الجودة أولاً)" icon={Target} id="quality-performance" />
+      <QualityFirstCards />
 
       {/* ─── Charts ──────────────────────────────── */}
       <SectionTitle title="الرسوم البيانية والتحليلات" icon={Activity} id="charts" />

@@ -202,11 +202,34 @@ model DailyTrackPerformance {
 
   capturedAt DateTime @default(now()) @map("captured_at")
 
+  // ─── Quality-First Performance fields (additive, all nullable) ──────
+  // Populated by TrackPerformanceService. Existing rows from before the
+  // feature shipped stay valid — every new column has a default or is
+  // nullable, so `prisma db push --accept-data-loss` is non-destructive.
+  avgReportQualityScore  Float?   @map("avg_report_quality_score")
+  trackLeadEngagement    Float?   @map("track_lead_engagement")
+  trackLeadId            String?  @map("track_lead_id")
+  trackLeadName          String?  @map("track_lead_name")
+  trackLeadRawEngagement Int?     @map("track_lead_raw_engagement")
+  bestEmployeeId         String?  @map("best_employee_id")
+  bestEmployeeName       String?  @map("best_employee_name")
+  bestEmployeeQuality    Float?   @map("best_employee_quality")
+  totalTrackEngagement   Float?   @map("total_track_engagement")
+  engagementRank         Int?     @map("engagement_rank")
+  validReportsCount      Int?     @map("valid_reports_count")
+  excellentReportsCount  Int?     @map("excellent_reports_count")
+  goodReportsCount       Int?     @map("good_reports_count")
+  fairReportsCount       Int?     @map("fair_reports_count")
+  poorReportsCount       Int?     @map("poor_reports_count")
+  zeroReason             String?  @map("zero_reason")
+  qualityFirstMetadata   Json?    @map("quality_first_metadata")
+
   track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
 
   @@unique([trackId, date])
   @@index([date])
   @@index([trackId, date])
+  @@index([date, engagementRank])
   @@map("daily_track_performance")
 }
 
