@@ -133,34 +133,6 @@ export const bookletsApi = {
   unassign: (id: string) => api.delete(`/tracks/employee-assignments/${id}`),
 };
 
-// ─── Absences (Bulk by Track + Booklet) ───
-export type AbsenceTypeKey =
-  | 'ABSENT'
-  | 'LATE'
-  | 'EARLY_LEAVE'
-  | 'EXCUSED'
-  | 'SICK_LEAVE'
-  | 'ANNUAL_LEAVE';
-
-export const absencesApi = {
-  getEmployeesByTrackBooklet: (trackId: string, bookletId: string, date?: string) =>
-    api.get('/attendance/employees-by-track-booklet', {
-      params: { trackId, bookletId, ...(date ? { date } : {}) },
-    }),
-  createBulk: (data: {
-    trackId: string;
-    bookletId: string;
-    absenceDate: string;
-    globalReason?: string;
-    employees: Array<{ employeeId: string; type: AbsenceTypeKey; reason?: string; hours?: number; notes?: string }>;
-  }) => api.post('/attendance/absences/bulk', data),
-  report: (trackId: string, bookletId: string, date: string) =>
-    api.get('/attendance/absences/report', { params: { trackId, bookletId, date } }),
-  approve: (id: string) => api.patch(`/attendance/absences/${id}/approve`),
-  reject: (id: string) => api.patch(`/attendance/absences/${id}/reject`),
-  delete: (id: string) => api.delete(`/attendance/absences/${id}`),
-};
-
 // ─── Progress & Achievements ───
 export const progressApi = {
   globalStats: () => api.get('/progress/global-stats'),
@@ -670,6 +642,11 @@ export const performanceApi = {
     api.get('/performance/history', { params: { from, to } }),
   recalculate: (date?: string) =>
     api.post('/performance/recalculate', null, { params: date ? { date } : {} }),
+};
+
+// ─── Weekly Cumulative Track Ranking ───
+export const weeklyCumulativeApi = {
+  topThree: () => api.get('/dashboard/weekly-cumulative/top-three'),
 };
 
 // ─── Distribution: Achievement + Deviation ───

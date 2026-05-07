@@ -30,6 +30,7 @@ import { SystemExportModule } from './system-export/system-export.module';
 import { GanttModule } from './gantt/gantt.module';
 import { ExecutiveTasksModule } from './executive-tasks/executive-tasks.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { WeeklyCumulativeModule } from './analytics/weekly-cumulative/weekly-cumulative.module';
 import { DistributionModule } from './distribution/distribution.module';
 import { AiEngineModule } from './ai-engine/ai-engine.module';
 import { ProductivityModule } from './productivity/productivity.module';
@@ -76,6 +77,7 @@ import { RootController } from './root.controller';
     GanttModule,
     ExecutiveTasksModule,
     AnalyticsModule,
+    WeeklyCumulativeModule,
     DistributionModule,
     AiEngineModule,
     ProductivityModule,
