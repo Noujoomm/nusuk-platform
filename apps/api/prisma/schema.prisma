@@ -173,6 +173,7 @@ model Track {
   distAnalyses DistributionAnalysisSession[] @relation("DistAnalysisTrack")
 
   dailyPerformance DailyTrackPerformance[]
+  weeklyCumulative WeeklyCumulativeScore[]
 
   @@map("tracks")
 }
@@ -206,23 +207,23 @@ model DailyTrackPerformance {
   // Populated by TrackPerformanceService. Existing rows from before the
   // feature shipped stay valid — every new column has a default or is
   // nullable, so `prisma db push --accept-data-loss` is non-destructive.
-  avgReportQualityScore  Float?   @map("avg_report_quality_score")
-  trackLeadEngagement    Float?   @map("track_lead_engagement")
-  trackLeadId            String?  @map("track_lead_id")
-  trackLeadName          String?  @map("track_lead_name")
-  trackLeadRawEngagement Int?     @map("track_lead_raw_engagement")
-  bestEmployeeId         String?  @map("best_employee_id")
-  bestEmployeeName       String?  @map("best_employee_name")
-  bestEmployeeQuality    Float?   @map("best_employee_quality")
-  totalTrackEngagement   Float?   @map("total_track_engagement")
-  engagementRank         Int?     @map("engagement_rank")
-  validReportsCount      Int?     @map("valid_reports_count")
-  excellentReportsCount  Int?     @map("excellent_reports_count")
-  goodReportsCount       Int?     @map("good_reports_count")
-  fairReportsCount       Int?     @map("fair_reports_count")
-  poorReportsCount       Int?     @map("poor_reports_count")
-  zeroReason             String?  @map("zero_reason")
-  qualityFirstMetadata   Json?    @map("quality_first_metadata")
+  avgReportQualityScore  Float?  @map("avg_report_quality_score")
+  trackLeadEngagement    Float?  @map("track_lead_engagement")
+  trackLeadId            String? @map("track_lead_id")
+  trackLeadName          String? @map("track_lead_name")
+  trackLeadRawEngagement Int?    @map("track_lead_raw_engagement")
+  bestEmployeeId         String? @map("best_employee_id")
+  bestEmployeeName       String? @map("best_employee_name")
+  bestEmployeeQuality    Float?  @map("best_employee_quality")
+  totalTrackEngagement   Float?  @map("total_track_engagement")
+  engagementRank         Int?    @map("engagement_rank")
+  validReportsCount      Int?    @map("valid_reports_count")
+  excellentReportsCount  Int?    @map("excellent_reports_count")
+  goodReportsCount       Int?    @map("good_reports_count")
+  fairReportsCount       Int?    @map("fair_reports_count")
+  poorReportsCount       Int?    @map("poor_reports_count")
+  zeroReason             String? @map("zero_reason")
+  qualityFirstMetadata   Json?   @map("quality_first_metadata")
 
   track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
 
@@ -231,6 +232,47 @@ model DailyTrackPerformance {
   @@index([trackId, date])
   @@index([date, engagementRank])
   @@map("daily_track_performance")
+}
+
+/// Weekly cumulative track ranking, captured live every minute by a cron
+/// while the week is in progress and frozen on Sunday 00:00 Asia/Riyadh
+/// (when `isArchived` flips true and the row stops being recomputed).
+///
+/// `cumulativeScore` = SUM over the week of (avgReportQualityScore +
+/// trackLeadEngagement). The summands come from the existing
+/// daily_track_performance rows for completed days, plus a live
+/// quality-first compute for today. `daysContributed` counts only days
+/// where the track had any activity — used as the tie-breaker on the
+/// scoreboard (more contributing days wins; trackId asc as final
+/// deterministic key).
+///
+/// One row per (track, weekStartDate). `weekStartDate` is the Sunday in
+/// Riyadh that opens the week, stored as a calendar date.
+model WeeklyCumulativeScore {
+  id            String   @id @default(cuid())
+  trackId       String   @map("track_id")
+  weekStartDate DateTime @map("week_start_date") @db.Date
+
+  cumulativeScore       Float @default(0) @map("cumulative_score")
+  reportQualityScore    Float @default(0) @map("report_quality_score")
+  leaderEngagementScore Float @default(0) @map("leader_engagement_score")
+  daysContributed       Int   @default(0) @map("days_contributed")
+
+  trackLeadId   String? @map("track_lead_id")
+  trackLeadName String? @map("track_lead_name")
+
+  isArchived    Boolean  @default(false) @map("is_archived")
+  lastUpdatedAt DateTime @updatedAt @map("last_updated_at")
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([trackId, weekStartDate])
+  // Reads always filter on weekStartDate then sort by score desc — this
+  // covers both the live "current week" lookup and any future archive
+  // lookup. Postgres will read it backwards for desc-by-score.
+  @@index([weekStartDate, cumulativeScore])
+  @@index([weekStartDate, isArchived])
+  @@map("weekly_cumulative_scores")
 }
 
 model TrackPermission {

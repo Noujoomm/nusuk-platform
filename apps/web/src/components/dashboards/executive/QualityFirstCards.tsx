@@ -17,6 +17,7 @@
 import { useEffect, useState } from 'react';
 import { performanceApi } from '@/lib/api';
 import { TopDataEntryPerformersCard } from './TopDataEntryPerformersCard';
+import { WeeklyCumulativeCard } from './WeeklyCumulativeCard';
 
 // ─── Types mirror the controller response ───────────────────────────
 interface TrackTop {
@@ -144,6 +145,12 @@ export function QualityFirstCards() {
           vertically. The new card visually pairs with BestEmployees
           (both rank individuals by report quality). */}
       <TopDataEntryPerformersCard />
+      {/* Weekly cumulative spans the full row on lg+ — its rows carry
+          more per-track detail (cumulative + breakdown + days), so the
+          extra width pays off. */}
+      <div className="lg:col-span-3">
+        <WeeklyCumulativeCard />
+      </div>
     </div>
   );
 }

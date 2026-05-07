@@ -644,6 +644,11 @@ export const performanceApi = {
     api.post('/performance/recalculate', null, { params: date ? { date } : {} }),
 };
 
+// ─── Weekly Cumulative Track Ranking ───
+export const weeklyCumulativeApi = {
+  topThree: () => api.get('/dashboard/weekly-cumulative/top-three'),
+};
+
 // ─── Distribution: Achievement + Deviation ───
 export const distAchievementApi = {
   dashboard: () => api.get('/distribution/achievement/dashboard'),
