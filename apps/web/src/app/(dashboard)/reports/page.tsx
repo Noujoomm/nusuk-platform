@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { VoiceFillButton, VoiceFillResult } from '@/components/reports/voice-fill-button';
+import { TextEnhancerButton, type EnhancerFieldKey } from '@/components/reports/text-enhancer-button';
 
 // ─── Types ───
 
@@ -659,7 +660,23 @@ export default function ReportsPage() {
               <FileText className="w-5 h-5 text-brand-400" />
               {editingReport ? 'تعديل التقرير' : 'إنشاء تقرير جديد'}
             </h2>
-            {!editingReport && <VoiceFillButton onFilled={handleVoiceFilled} />}
+            <div className="flex items-center gap-2 flex-wrap">
+              {!editingReport && <VoiceFillButton onFilled={handleVoiceFilled} />}
+              <TextEnhancerButton
+                trackId={form.trackId || null}
+                formValues={{
+                  achievements: form.achievements,
+                  kpiUpdates: form.kpiUpdates,
+                  challenges: form.challenges,
+                  supportNeeded: form.supportNeeded,
+                  upcomingTasks: form.upcomingTasks,
+                  notes: form.notes,
+                }}
+                onApply={(key: EnhancerFieldKey, newText) =>
+                  updateForm(key, newText)
+                }
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

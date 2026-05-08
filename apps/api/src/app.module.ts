@@ -42,6 +42,7 @@ import { AIAgentModule } from './ai-agent/ai-agent.module';
 import { AIAnalyzerModule } from './support-services/ai-analyzer/ai-analyzer.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { DistributionAnalyzerModule } from './distribution-analyzer/distribution-analyzer.module';
+import { TextEnhancerModule } from './text-enhancer/text-enhancer.module';
 import { HealthController } from './health.controller';
 import { RootController } from './root.controller';
 
@@ -89,6 +90,7 @@ import { RootController } from './root.controller';
     AIAnalyzerModule,
     AttendanceModule,
     DistributionAnalyzerModule,
+    TextEnhancerModule,
   ],
   controllers: [HealthController, RootController],
   providers: [
