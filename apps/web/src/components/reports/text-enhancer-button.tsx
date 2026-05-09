@@ -65,7 +65,8 @@ interface Props {
   formValues: Record<EnhancerFieldKey, string>;
   onApply: (key: EnhancerFieldKey, newText: string) => void;
   disabled?: boolean;
-  /** Min words required to enable the AI call. Default 20. */
+  /** Min words required for a field to be eligible. Default 10. The
+   *  backend hard-floor is also 10 — stay in sync if changing it. */
   minWords?: number;
 }
 
@@ -76,7 +77,7 @@ export function TextEnhancerButton({
   formValues,
   onApply,
   disabled,
-  minWords = 20,
+  minWords = 10,
 }: Props) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [enhancing, setEnhancing] = useState<EnhancerFieldKey | null>(null);
@@ -153,17 +154,28 @@ export function TextEnhancerButton({
   };
 
   const isLoading = enhancing !== null;
+  // Only the explicit `disabled` prop and a real in-flight request
+  // disable the button. We INTENTIONALLY don't gate on `!trackId` —
+  // the picker handles that case visibly with a banner, instead of
+  // leaving the button "permanently dimmed" with only a hover-title
+  // explaining why (hover doesn't fire on touch, and users routinely
+  // missed it).
+  const buttonDisabled = Boolean(disabled) || isLoading;
+  const eligibleFieldCount = useMemo(
+    () => fieldStates.filter((f) => f.wordCount >= minWords).length,
+    [fieldStates, minWords],
+  );
 
   return (
     <div className="relative" ref={pickerRef} dir="rtl">
       <button
         type="button"
         onClick={() => setPickerOpen((v) => !v)}
-        disabled={disabled || isLoading || !trackId}
+        disabled={buttonDisabled}
         className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 border border-violet-400/40 text-violet-100 hover:from-violet-500/30 hover:to-fuchsia-500/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         title={
-          !trackId
-            ? 'اختر المسار أولاً'
+          disabled
+            ? 'غير متاح حالياً'
             : 'حسّن صياغة أحد الحقول النصية بالذكاء الاصطناعي'
         }
       >
@@ -177,25 +189,44 @@ export function TextEnhancerButton({
       </button>
 
       {pickerOpen && !isLoading && (
-        <div className="absolute z-30 mt-2 right-0 w-64 rounded-lg border border-white/10 bg-gray-900/95 backdrop-blur shadow-xl overflow-hidden">
-          <div className="px-3 py-2 text-[11px] text-gray-400 border-b border-white/5">
-            اختر الحقل المراد تحسينه
-          </div>
+        <div className="absolute z-30 mt-2 right-0 w-72 rounded-lg border border-white/10 bg-gray-900/95 backdrop-blur shadow-xl overflow-hidden">
+          {!trackId ? (
+            <div className="px-3 py-3 text-[12px] text-amber-200 bg-amber-500/10 border-b border-amber-400/20">
+              اختر المسار من القائمة أعلاه أولاً، ثم سيُتاح تحسين الحقول.
+            </div>
+          ) : (
+            <div className="px-3 py-2 text-[11px] text-gray-400 border-b border-white/5">
+              اختر الحقل المراد تحسينه
+              {eligibleFieldCount === 0 && (
+                <span className="block text-amber-300/90 mt-0.5">
+                  لا يوجد حقل به {minWords} كلمات أو أكثر بعد.
+                </span>
+              )}
+            </div>
+          )}
           <ul className="py-1">
             {fieldStates.map((f) => {
-              const eligible = f.wordCount >= minWords;
+              const eligible = trackId !== null && f.wordCount >= minWords;
+              const reason = !trackId
+                ? 'اختر المسار أولاً'
+                : f.wordCount < minWords
+                  ? `اكتب على الأقل ${minWords} كلمات لتفعيل التحسين (الحالي: ${f.wordCount})`
+                  : '';
               return (
                 <li key={f.key}>
                   <button
                     type="button"
                     disabled={!eligible}
                     onClick={() => startEnhance(f.key)}
+                    title={reason || undefined}
                     className="w-full text-right px-3 py-2 flex items-center justify-between gap-2 text-sm hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                   >
                     <span className="text-white/90">{f.label}</span>
                     <span className="text-[11px] text-gray-500 tabular-nums">
-                      {f.wordCount} كلمة
-                      {!eligible && ` • <${minWords}`}
+                      {f.wordCount} {f.wordCount === 1 ? 'كلمة' : 'كلمات'}
+                      {trackId && f.wordCount < minWords && (
+                        <span className="text-amber-300/80"> • أقل من {minWords}</span>
+                      )}
                     </span>
                   </button>
                 </li>
@@ -451,12 +482,30 @@ function TabButton({
 
 // ─── Helpers ─────────────────────────────────────────────────────────
 
+/**
+ * Arabic-aware word count.
+ *
+ * Pasted Arabic text routinely arrives with characters that a naive
+ * `split(/\s+/)` treats as word-characters but humans don't:
+ *   - U+00A0  non-breaking space (Word, web copy)
+ *   - U+200C  zero-width non-joiner
+ *   - U+200D  zero-width joiner
+ *   - U+200E/F LTR/RTL marks
+ *   - U+FEFF  zero-width no-break space (BOM)
+ *   - U+0640  tatweel (kashida) — visual lengthening, not a word break,
+ *             but it shouldn't be left in place either; we drop it so a
+ *             tatweel-stretched word still counts as one word.
+ * Tatweels INSIDE a word are removed; the other invisibles are turned
+ * into regular spaces so they break words like a normal space would.
+ */
 function countWords(s: string | null | undefined): number {
   if (!s) return 0;
   return s
+    .replace(/ـ/g, '')
+    .replace(/[ ‌‍‎‏﻿]/g, ' ')
     .trim()
     .split(/\s+/)
-    .filter(Boolean).length;
+    .filter((w) => w.length > 0).length;
 }
 
 function avg(s: QualityScores): number {
