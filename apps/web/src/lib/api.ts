@@ -649,6 +649,14 @@ export const weeklyCumulativeApi = {
   topThree: () => api.get('/dashboard/weekly-cumulative/top-three'),
 };
 
+// ─── Smart Text Enhancer ───
+export const textEnhancerApi = {
+  enhance: (params: { text: string; trackId: string; fieldContext?: string }) =>
+    api.post('/text-enhancer/enhance', params, { timeout: 90_000 }),
+  accept: (auditId: string) =>
+    api.patch(`/text-enhancer/audit/${auditId}/accept`),
+};
+
 // ─── Distribution: Achievement + Deviation ───
 export const distAchievementApi = {
   dashboard: () => api.get('/distribution/achievement/dashboard'),

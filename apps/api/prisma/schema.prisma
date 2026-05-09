@@ -107,6 +107,9 @@ model User {
   recordedAbsences Absence[] @relation("AbsenceRecorder")
   approvedAbsences Absence[] @relation("AbsenceApprover")
 
+  // Smart text enhancer audit trail
+  textEnhancements TextEnhancementLog[] @relation("TextEnhancementUser")
+
   @@map("users")
 }
 
@@ -2450,4 +2453,43 @@ model Absence {
   @@index([trackId, bookletId, absenceDate])
   @@index([employeeId, absenceDate])
   @@map("absences")
+}
+
+/// Smart text enhancer audit trail. Every call to POST
+/// /api/text-enhancer/enhance writes a row here BEFORE the response
+/// goes back to the client (so even if the user closes the tab without
+/// accepting, we still know what we were asked to do and how we
+/// scored it). The PATCH /audit/:id/accept endpoint flips
+/// `accepted=true` and stamps `acceptedAt`.
+///
+/// Stored fields tell us:
+///   - what the model classified the text as (qualityScores)
+///   - which prompt level we ended up running (interventionLevel)
+///   - whether the user actually used the result (accepted)
+///
+/// Used by the analytics dashboard to detect rubric drift between
+/// tracks (e.g. one track always scoring `heavy` while another always
+/// scores `light` — a sign the rubrics need calibration).
+model TextEnhancementLog {
+  id                String    @id @default(cuid())
+  userId            String    @map("user_id")
+  trackId           String    @map("track_id")
+  fieldContext      String?   @map("field_context")
+  originalText      String    @map("original_text") @db.Text
+  enhancedText      String    @map("enhanced_text") @db.Text
+  interventionLevel String    @map("intervention_level") // 'light' | 'medium' | 'heavy'
+  qualityScores     Json      @map("quality_scores")
+  changesCount      Int       @default(0) @map("changes_count")
+  diagnosticSummary String?   @map("diagnostic_summary") @db.Text
+  accepted          Boolean   @default(false)
+  acceptedAt        DateTime? @map("accepted_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  user User @relation("TextEnhancementUser", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([trackId])
+  @@index([createdAt])
+  @@index([trackId, interventionLevel])
+  @@map("text_enhancement_logs")
 }
