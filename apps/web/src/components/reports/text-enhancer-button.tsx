@@ -314,11 +314,15 @@ function ComparisonModal({
       dir="rtl"
     >
       <div
-        className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl border border-white/10 bg-gray-900/95 backdrop-blur shadow-2xl flex flex-col"
+        // `dvh` follows the dynamic viewport (mobile browser chrome
+        // shrinking/expanding) so the modal doesn't get clipped behind
+        // the iOS Safari URL bar. `vh` stays as a fallback for older
+        // browsers that don't support `dvh`.
+        className="relative w-full max-w-5xl max-h-[90vh] max-h-[90dvh] overflow-hidden rounded-2xl border border-white/10 bg-gray-900/95 backdrop-blur shadow-2xl flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <header className="px-5 py-4 border-b border-white/5 flex items-center justify-between gap-3">
+        <header className="shrink-0 px-5 py-4 border-b border-white/5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-white">
             <Sparkles className="w-5 h-5 text-violet-300" />
             <h2 className="text-base font-semibold">
@@ -336,7 +340,7 @@ function ComparisonModal({
         </header>
 
         {/* Meta strip */}
-        <div className="px-5 py-3 border-b border-white/5 flex items-center gap-3 flex-wrap text-xs">
+        <div className="shrink-0 px-5 py-3 border-b border-white/5 flex items-center gap-3 flex-wrap text-xs">
           <span
             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 ${LEVEL_TONE[response.interventionLevel]}`}
           >
@@ -357,7 +361,7 @@ function ComparisonModal({
         </div>
 
         {/* Mobile tabs */}
-        <div className="md:hidden px-5 pt-3 flex gap-2">
+        <div className="shrink-0 md:hidden px-5 pt-3 flex gap-2">
           <TabButton active={activeTab === 'before'} onClick={() => setActiveTab('before')}>
             قبل
           </TabButton>
@@ -366,8 +370,18 @@ function ComparisonModal({
           </TabButton>
         </div>
 
-        {/* Body — split on md+, tabs on mobile */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        {/* Body — split on md+, tabs on mobile.
+            `min-h-0` is the load-bearing class here: without it, a
+            flex child gets the implicit `min-height: auto`, expands
+            to the size of its content (long original + enhanced
+            text) and bursts past the wrapper's `max-h`, which is
+            why the panel was looking truncated with no scroll bar.
+            `overscroll-contain` keeps page scroll from triggering
+            once the body hits its top/bottom edge. */}
+        <div
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 py-4"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Pane
               title="النص الأصلي"
@@ -400,7 +414,7 @@ function ComparisonModal({
         </div>
 
         {/* Footer actions */}
-        <footer className="px-5 py-3 border-t border-white/5 flex items-center justify-between gap-2 flex-wrap">
+        <footer className="shrink-0 px-5 py-3 border-t border-white/5 flex items-center justify-between gap-2 flex-wrap">
           <button
             type="button"
             onClick={onCancel}
