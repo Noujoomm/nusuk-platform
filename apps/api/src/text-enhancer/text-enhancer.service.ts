@@ -46,7 +46,7 @@ const DEFAULT_MODEL = 'claude-sonnet-4-5';
 const DIAGNOSTIC_MAX_TOKENS = 600;
 const ENHANCE_MAX_TOKENS = 4_000;
 const REQUEST_TIMEOUT_MS = 50_000;
-const MIN_WORDS = 20;
+const MIN_WORDS = 10;
 const MAX_CHARS = 10_000;
 
 /** Threshold cutoffs for picking the enhancement prompt from the
@@ -259,10 +259,9 @@ export class TextEnhancerService {
     if (trimmed.length === 0) {
       throw new BadRequestException('النص فارغ.');
     }
-    const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
-    if (wordCount < MIN_WORDS) {
+    if (countArabicWords(trimmed) < MIN_WORDS) {
       throw new BadRequestException(
-        `النص قصير جداً للتحسين (الحد الأدنى ${MIN_WORDS} كلمة).`,
+        `النص قصير جداً للتحسين (الحد الأدنى ${MIN_WORDS} كلمات).`,
       );
     }
     if (trimmed.length > MAX_CHARS) {
@@ -341,6 +340,22 @@ function countWordChanges(before: string, after: string): number {
   // Symmetric set-difference counts each substitution twice (once on
   // each side), so halve to get an "edits" approximation.
   return Math.ceil(diff / 2);
+}
+
+/**
+ * Arabic-aware word count, kept in sync with the frontend's helper in
+ * `text-enhancer-button.tsx`. Otherwise the frontend can show "12
+ * كلمة ✓" while the backend rejects the same payload at 9.
+ *   - Tatweel (U+0640) is removed (visual lengthening, not a separator).
+ *   - NBSP / zero-width joiners / direction marks / BOM become spaces.
+ */
+function countArabicWords(s: string): number {
+  return s
+    .replace(/ـ/g, '')
+    .replace(/[ ‌‍‎‏﻿]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter((w) => w.length > 0).length;
 }
 
 function summariseWeaknesses(
