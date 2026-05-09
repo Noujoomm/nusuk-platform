@@ -189,7 +189,19 @@ export function TextEnhancerButton({
       </button>
 
       {pickerOpen && !isLoading && (
-        <div className="absolute z-30 mt-2 right-0 w-72 rounded-lg border border-white/10 bg-gray-900/95 backdrop-blur shadow-xl overflow-hidden">
+        // The popup needs to be scrollable for two reasons:
+        //   1. Short viewports (mobile with keyboard open) where the
+        //      banner + 6 field rows don't all fit at once.
+        //   2. Future field additions — easier to grow the menu than
+        //      to redesign a clip-prone fixed layout.
+        // `overscroll-contain` prevents the page from scrolling once
+        // the menu hits its top/bottom edge. `z-[100]` keeps the menu
+        // above the form's glassmorphism stacking and any sticky bars.
+        // `end-0` (logical right in RTL) flips automatically with dir.
+        <div
+          onWheel={(e) => e.stopPropagation()}
+          className="absolute z-[100] mt-2 end-0 w-72 max-h-[min(60vh,500px)] overflow-y-auto overscroll-contain rounded-lg border border-white/10 bg-gray-900/95 backdrop-blur shadow-xl [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent"
+        >
           {!trackId ? (
             <div className="px-3 py-3 text-[12px] text-amber-200 bg-amber-500/10 border-b border-amber-400/20">
               اختر المسار من القائمة أعلاه أولاً، ثم سيُتاح تحسين الحقول.
