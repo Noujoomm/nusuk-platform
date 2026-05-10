@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/stores/auth';
+import { useSidebar } from '@/stores/sidebar';
 import { cn, ROLE_LABELS } from '@/lib/utils';
 import { dailyUpdatesApi } from '@/lib/api';
 import {
@@ -86,8 +87,22 @@ export default function Sidebar() {
     router.push('/login');
   };
 
+  const collapsed = useSidebar((s) => s.collapsed);
+
   return (
-    <aside className="fixed right-0 top-0 w-64 h-screen glass border-l border-white/10 flex flex-col z-40">
+    <aside
+      id="primary-sidebar"
+      aria-hidden={collapsed}
+      // In RTL, `translate-x-full` moves the aside +100% to the right,
+      // which slides it off-screen since `right-0` pins it to the
+      // right edge. We keep `w-64` constant (don't animate width)
+      // because animating width fights with the main content's margin
+      // transition and produces a jitter.
+      className={cn(
+        'fixed right-0 top-0 w-64 h-screen glass border-l border-white/10 flex flex-col z-40 transition-transform duration-300 ease-in-out motion-reduce:transition-none',
+        collapsed && 'translate-x-full',
+      )}
+    >
       {/* Header */}
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center justify-between">

@@ -223,13 +223,20 @@ export default function AdminDashboard() {
           )}
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions — scrolls vertically when the list outgrows the
+            box. 420px keeps 4-5 items visible at once on most viewports;
+            longer lists become discoverable instead of overflowing the
+            card silently. `overscroll-contain` stops scroll bleeding to
+            the page when reaching the list edges. The scrollbar styling
+            matches the dropdown popup elsewhere for consistency. */}
         <div className="glass rounded-2xl border border-white/10 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Zap className="w-5 h-5 text-amber-400" />
             إجراءات سريعة
           </h2>
-          <div className="space-y-3">
+          <div
+            className="space-y-3 max-h-[420px] overflow-y-auto overscroll-contain pe-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent"
+          >
             {quickActions.map((action) => (
               <Link
                 key={action.label}
