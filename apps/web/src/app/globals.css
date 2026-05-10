@@ -239,7 +239,23 @@ select.input-field:disabled {
   color: #1C2B3A !important;
 }
 
-/* ─── Scrollbar ─── */
+/* ─── Scroll behaviour + scrollbar ─── */
+/* Smooth scrolling for anchor links and programmatic `scrollTo` calls.
+ * Honours OS reduced-motion via the media query below. Native wheel
+ * scroll is unaffected — this only smooths *intentional* jumps. */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* Firefox uses these instead of `::-webkit-scrollbar`. Same colour
+ * tokens as the Webkit rules below so the thumb matches across
+ * browsers without a second source of truth. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 9999px; }
