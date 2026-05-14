@@ -1,11 +1,24 @@
+/**
+ * v2.5 suite — the continuous-gradient calculator.
+ *
+ * Most assertions are PROPERTY-based, not magic-number based: the whole
+ * point of v2.5 is that scores form a smooth continuum, so pinning exact
+ * decimals would be brittle and would obscure the property we actually
+ * care about (continuity, determinism, no hidden multipliers, 0..100,
+ * 100-achievable). The two exact anchors that DO matter — empty → 0 and
+ * perfect → 100 — are asserted exactly.
+ */
+
 import {
   MIN_QUALITY_THRESHOLD,
   QUALITY_BUCKETS,
   ReportForQuality,
   bucketOf,
   calculateReportQuality,
+  calculateReportQualityDetailed,
   hasStructuredContent,
 } from './report-quality.calculator';
+import { calculateReportQualityV2 } from './report-quality.calculator.v2';
 
 const empty: ReportForQuality = {
   title: null,
@@ -21,175 +34,220 @@ const empty: ReportForQuality = {
 
 const baseFilled = (over: Partial<ReportForQuality> = {}): ReportForQuality => ({
   ...empty,
-  title: 'Daily Track Report', // 18 chars ≥ 10
+  title: 'Daily Track Report',
   trackId: 'track_1',
   reportDate: new Date('2026-05-05'),
-  achievements: 'a'.repeat(60), // ≥ 50 chars (required) and ≥ 50 (depth tier 5)
+  achievements: 'a'.repeat(60),
   ...over,
 });
 
-describe('calculateReportQuality', () => {
-  it('returns 0 for an empty report', () => {
-    expect(calculateReportQuality(empty)).toBe(0);
-  });
+const validPdf = (bytes = 60_000) => ({ sizeBytes: bytes, mimeType: 'application/pdf' });
 
-  describe('1. required-field completeness (30 = 10+10+10)', () => {
-    it('credits 10 when title is ≥ 10 chars', () => {
-      const r = { ...empty, title: 'Daily Track Report' };
-      // achievements null → 0 from required-achievements; trackId+date missing → 0
-      expect(calculateReportQuality(r)).toBe(10);
+/** A genuinely perfect report — every axis maxed. */
+const perfectReport: ReportForQuality = {
+  title: 'Comprehensive Daily Track Report',
+  trackId: 'track_1',
+  reportDate: new Date('2026-05-05'),
+  achievements:
+    '## أبرز ما تحقق\n' +
+    '- أنجزنا تسليم الدفعة الأولى\n' +
+    '- أغلقنا ثلاث ملاحظات جودة\n' +
+    '- **تدريب** فريقين ميدانيين\n' +
+    'x'.repeat(520),
+  kpiUpdates: 'تحديث مؤشرات الأداء: الإنجاز 82٪ مقابل مستهدف 80٪ لهذا الأسبوع.',
+  upcomingTasks: 'خطة الأسبوع القادم: توسعة نقطتي توزيع جديدتين ومراجعة المخزون.',
+  challenges: 'التحدي الرئيسي: تأخر مورد التغليف، وجارٍ التنسيق مع بديل معتمد.',
+  notes: 'ملاحظات إضافية',
+  attachments: [validPdf(400_000), validPdf(400_000), validPdf(400_000)],
+};
+
+describe('calculateReportQualityDetailed (v2.5)', () => {
+  describe('exact anchors', () => {
+    it('empty report → 0', () => {
+      expect(calculateReportQualityDetailed(empty).finalScore).toBe(0);
     });
 
-    it('does not credit short titles (< 10 chars)', () => {
-      const r = { ...empty, title: 'Hi' };
-      expect(calculateReportQuality(r)).toBe(0);
+    it('genuinely perfect report → exactly 100 (the ceiling is reachable)', () => {
+      expect(calculateReportQualityDetailed(perfectReport).finalScore).toBe(100);
     });
 
-    it('credits 10 when achievements ≥ 50 chars (separate from depth tier)', () => {
-      const r = { ...empty, achievements: 'a'.repeat(50) };
-      // 10 (achievements ≥ 50) + 5 (depth tier ≥ 50)
-      expect(calculateReportQuality(r)).toBe(15);
-    });
-
-    it('credits 10 when both trackId and reportDate are present', () => {
-      const r = { ...empty, trackId: 't1', reportDate: new Date() };
-      expect(calculateReportQuality(r)).toBe(10);
-    });
-
-    it('does not credit if only trackId is set (date missing)', () => {
-      const r = { ...empty, trackId: 't1' };
-      expect(calculateReportQuality(r)).toBe(0);
-    });
-  });
-
-  describe('2. content depth on achievements (graduated 25/20/15/10/5/0)', () => {
-    const variants: Array<[number, number]> = [
-      [500, 25],
-      [300, 20],
-      [200, 15],
-      [100, 10],
-      [50, 5],
-      [49, 0],
-    ];
-    it.each(variants)('achievements length %i → depth tier %i', (len, depthPts) => {
-      const r = baseFilled({ achievements: 'a'.repeat(len) });
-      // base required: 10 (title) + (len ≥ 50 ? 10 : 0) + 10 (track+date) + depth
-      const requiredAchPts = len >= 50 ? 10 : 0;
-      const expected = 10 + requiredAchPts + 10 + depthPts;
-      expect(calculateReportQuality(r)).toBe(expected);
+    it('does not throw on undefined input', () => {
+      expect(calculateReportQualityDetailed({} as ReportForQuality).finalScore).toBe(0);
     });
   });
 
-  describe('3. valid attachments (graduated 20/15/10/0)', () => {
-    const validPdf = { sizeBytes: 50_000, mimeType: 'application/pdf' };
-
-    it('1 valid → 10', () => {
-      const r = baseFilled({ attachments: [validPdf] });
-      // base 30 (title+ach+date) + depth 5 + attach 10 = 45
-      expect(calculateReportQuality(r)).toBe(45);
+  describe('result shape + no hidden multipliers', () => {
+    it('tags the formula version', () => {
+      expect(calculateReportQualityDetailed(baseFilled()).formulaVersion).toBe('v2.5');
     });
 
-    it('2 valid → 15', () => {
-      const r = baseFilled({ attachments: [validPdf, validPdf] });
-      expect(calculateReportQuality(r)).toBe(50);
+    it('the five contributions sum exactly to finalScore', () => {
+      const r = calculateReportQualityDetailed(
+        baseFilled({
+          achievements: 'a'.repeat(237),
+          kpiUpdates: 'partial kpi text',
+          attachments: [validPdf(123_456)],
+        }),
+      );
+      const sum =
+        r.breakdown.completeness.contribution +
+        r.breakdown.depth.contribution +
+        r.breakdown.attachments.contribution +
+        r.breakdown.metadata.contribution +
+        r.breakdown.structure.contribution;
+      expect(r.finalScore).toBeCloseTo(sum, 2);
     });
 
-    it('3+ valid → 20', () => {
-      const r = baseFilled({ attachments: [validPdf, validPdf, validPdf, validPdf] });
-      expect(calculateReportQuality(r)).toBe(55);
+    it('weights sum exactly to 1.0 (30/25/20/15/10)', () => {
+      const b = calculateReportQualityDetailed(baseFilled()).breakdown;
+      expect(b.completeness.weight).toBe(0.3);
+      expect(b.depth.weight).toBe(0.25);
+      expect(b.attachments.weight).toBe(0.2);
+      expect(b.metadata.weight).toBe(0.15);
+      expect(b.structure.weight).toBe(0.1);
+      expect(
+        b.completeness.weight +
+          b.depth.weight +
+          b.attachments.weight +
+          b.metadata.weight +
+          b.structure.weight,
+      ).toBe(1.0);
     });
 
-    it('rejects attachments below 10 KB', () => {
-      const r = baseFilled({ attachments: [{ sizeBytes: 5_000, mimeType: 'application/pdf' }] });
-      expect(calculateReportQuality(r)).toBe(35);
-    });
-
-    it('rejects unrecognized mime types', () => {
-      const r = baseFilled({ attachments: [{ sizeBytes: 50_000, mimeType: 'application/x-evil' }] });
-      expect(calculateReportQuality(r)).toBe(35);
-    });
-  });
-
-  describe('4. structured metadata (15 = 5+5+5)', () => {
-    it('credits 5 per filled metadata field, additive', () => {
-      const r = baseFilled({ kpiUpdates: 'kpi' });
-      expect(calculateReportQuality(r)).toBe(35 + 5);
-
-      const r2 = baseFilled({ kpiUpdates: 'kpi', upcomingTasks: 'plan' });
-      expect(calculateReportQuality(r2)).toBe(35 + 10);
-
-      const r3 = baseFilled({ kpiUpdates: 'kpi', upcomingTasks: 'plan', challenges: 'X' });
-      expect(calculateReportQuality(r3)).toBe(35 + 15);
-    });
-
-    it('whitespace-only fields do not count', () => {
-      const r = baseFilled({ kpiUpdates: '   ', upcomingTasks: '\n\t' });
-      expect(calculateReportQuality(r)).toBe(35);
+    it('each axis: contribution ≈ score × weight', () => {
+      const b = calculateReportQualityDetailed(baseFilled({ kpiUpdates: 'kpi text here' })).breakdown;
+      for (const axis of Object.values(b)) {
+        expect(axis.contribution).toBeCloseTo(axis.score * axis.weight, 2);
+      }
     });
   });
 
-  describe('5. structured writing (10)', () => {
-    it('credits when achievements has ≥3 lines AND bullets', () => {
+  describe('continuity — no fixed buckets', () => {
+    it('produces a wide spread of distinct scores for varied inputs', () => {
+      // 20 reports varying achievements length only — under v2 this would
+      // collapse onto ~6 depth tiers; under v2.5 every length is distinct.
+      const scores = Array.from({ length: 20 }, (_, i) =>
+        calculateReportQualityDetailed(baseFilled({ achievements: 'a'.repeat(40 + i * 23) }))
+          .finalScore,
+      );
+      expect(new Set(scores).size).toBeGreaterThan(15);
+    });
+
+    it('a 73%-filled report does not snap to a categorical value', () => {
+      // achievements at 365/500 chars ≈ 73% of the depth runway
+      const score = calculateReportQualityDetailed(
+        baseFilled({ achievements: 'a'.repeat(365) }),
+      ).finalScore;
+      expect([0, 25, 50, 75, 100]).not.toContain(score);
+    });
+
+    it('depth rises monotonically with achievements length', () => {
+      const at = (len: number) =>
+        calculateReportQualityDetailed(baseFilled({ achievements: 'a'.repeat(len) })).breakdown
+          .depth.score;
+      expect(at(500)).toBeGreaterThan(at(300));
+      expect(at(300)).toBeGreaterThan(at(150));
+      expect(at(150)).toBeGreaterThan(at(60));
+    });
+
+    it('metadata gives partial credit on field length (not just presence)', () => {
+      const short = calculateReportQualityDetailed(baseFilled({ kpiUpdates: 'kpi' })).breakdown
+        .metadata.score;
+      const long = calculateReportQualityDetailed(
+        baseFilled({ kpiUpdates: 'a'.repeat(40) }),
+      ).breakdown.metadata.score;
+      expect(long).toBeGreaterThan(short);
+      expect(short).toBeGreaterThan(0);
+    });
+
+    it('attachments: same count, larger bytes → higher score', () => {
+      const small = calculateReportQualityDetailed(
+        baseFilled({ attachments: [validPdf(15_000)] }),
+      ).breakdown.attachments.score;
+      const big = calculateReportQualityDetailed(
+        baseFilled({ attachments: [validPdf(900_000)] }),
+      ).breakdown.attachments.score;
+      expect(big).toBeGreaterThan(small);
+    });
+  });
+
+  describe('determinism — no AI, no randomness', () => {
+    it('returns an identical score across 1000 invocations', () => {
       const r = baseFilled({
-        achievements: '- first item\n- second item\n- third item\n- fourth item',
+        achievements: 'a'.repeat(312),
+        attachments: [validPdf(77_777)],
+        challenges: 'some challenge text',
       });
-      // 30 base + depth (length ~50 → 5) + structure 10 = 45
-      expect(calculateReportQuality(r)).toBe(30 + 5 + 10);
-    });
-
-    it('does NOT credit a single paragraph even if long', () => {
-      const r = baseFilled({ achievements: 'a'.repeat(500) });
-      // 30 base + 25 depth + 0 structure
-      expect(calculateReportQuality(r)).toBe(55);
-    });
-
-    it('credits headings (markdown #)', () => {
-      const r = baseFilled({
-        achievements: '# Today\nshipped feature\n# Tomorrow\nplan deploy\n# Notes',
-      });
-      // 30 base + depth (len >= 50 → 5) + 10 structure = 45
-      expect(calculateReportQuality(r)).toBeGreaterThanOrEqual(45);
+      const scores = Array.from({ length: 1000 }, () => calculateReportQuality(r));
+      expect(new Set(scores).size).toBe(1);
     });
   });
 
-  it('caps at 100 when everything filled to the max', () => {
-    const validPdf = { sizeBytes: 100_000, mimeType: 'application/pdf' };
-    const r: ReportForQuality = {
-      title: 'Comprehensive Daily Report',
-      trackId: 'track_1',
-      reportDate: new Date(),
-      achievements:
-        '## Highlights\n- shipped feature A\n- closed 3 bugs\n- onboarded 2 users\n' + 'x'.repeat(500),
-      kpiUpdates: 'KPI snapshot',
-      upcomingTasks: 'Plan',
-      challenges: 'Issue',
-      notes: 'Notes',
-      attachments: [validPdf, validPdf, validPdf],
-    };
-    expect(calculateReportQuality(r)).toBe(100);
-  });
+  describe('boundary conditions', () => {
+    it('never returns a negative score', () => {
+      expect(calculateReportQualityDetailed(empty).finalScore).toBeGreaterThanOrEqual(0);
+    });
 
-  it('does not throw on undefined input', () => {
-    expect(calculateReportQuality({} as ReportForQuality)).toBe(0);
+    it('never exceeds 100 even with oversized inputs', () => {
+      const huge: ReportForQuality = {
+        ...perfectReport,
+        achievements: 'x'.repeat(50_000),
+        attachments: Array.from({ length: 20 }, () => validPdf(5_000_000)),
+      };
+      expect(calculateReportQualityDetailed(huge).finalScore).toBeLessThanOrEqual(100);
+    });
+
+    it('every axis score stays within 0..100', () => {
+      const b = calculateReportQualityDetailed(perfectReport).breakdown;
+      for (const axis of Object.values(b)) {
+        expect(axis.score).toBeGreaterThanOrEqual(0);
+        expect(axis.score).toBeLessThanOrEqual(100);
+      }
+    });
   });
 });
 
-describe('hasStructuredContent', () => {
-  it('returns false for empty/short input', () => {
+describe('calculateReportQuality — backward-compatible entry point', () => {
+  it('returns a bare number equal to detailed.finalScore (v2.5 default)', () => {
+    const r = baseFilled({ achievements: 'a'.repeat(280), kpiUpdates: 'kpi' });
+    expect(calculateReportQuality(r)).toBe(calculateReportQualityDetailed(r).finalScore);
+  });
+
+  describe('USE_QUALITY_V25 feature flag', () => {
+    const original = process.env.USE_QUALITY_V25;
+    afterEach(() => {
+      if (original === undefined) delete process.env.USE_QUALITY_V25;
+      else process.env.USE_QUALITY_V25 = original;
+    });
+
+    it('falls back to frozen v2 when USE_QUALITY_V25=false', () => {
+      process.env.USE_QUALITY_V25 = 'false';
+      const r = baseFilled({ achievements: 'a'.repeat(300), attachments: [validPdf()] });
+      expect(calculateReportQuality(r)).toBe(calculateReportQualityV2(r));
+    });
+
+    it('uses v2.5 for any other flag value (including unset)', () => {
+      delete process.env.USE_QUALITY_V25;
+      const r = baseFilled({ achievements: 'a'.repeat(300), attachments: [validPdf()] });
+      expect(calculateReportQuality(r)).toBe(calculateReportQualityDetailed(r).finalScore);
+    });
+  });
+});
+
+describe('hasStructuredContent (v2.5 — derived from the graded ratio)', () => {
+  it('false for empty / unstructured short text', () => {
     expect(hasStructuredContent(null)).toBe(false);
     expect(hasStructuredContent('')).toBe(false);
     expect(hasStructuredContent('one\ntwo')).toBe(false);
   });
 
-  it('requires both ≥3 lines AND (bullets or headings)', () => {
-    expect(hasStructuredContent('one\ntwo\nthree')).toBe(false);
-    expect(hasStructuredContent('- one\n- two\n- three')).toBe(true);
-    expect(hasStructuredContent('# A\n# B\n# C')).toBe(true);
-    expect(hasStructuredContent('1. one\n2. two\n3. three')).toBe(true);
+  it('true for clearly structured text (multi-line + markers)', () => {
+    expect(hasStructuredContent('- one\n- two\n- three\n- four')).toBe(true);
+    expect(hasStructuredContent('# A\nbody\n# B\nbody\n# C')).toBe(true);
   });
 });
 
-describe('bucketOf', () => {
+describe('bucketOf — display labels, unchanged from v2', () => {
   it.each([
     [100, 'excellent'],
     [85, 'excellent'],
@@ -206,11 +264,11 @@ describe('bucketOf', () => {
   });
 });
 
-describe('thresholds', () => {
-  it('exposes MIN_QUALITY_THRESHOLD = 30', () => {
+describe('thresholds — unchanged from v2', () => {
+  it('MIN_QUALITY_THRESHOLD = 30', () => {
     expect(MIN_QUALITY_THRESHOLD).toBe(30);
   });
-  it('exposes bucket boundaries', () => {
+  it('bucket boundaries 85/70/50/30', () => {
     expect(QUALITY_BUCKETS.EXCELLENT).toBe(85);
     expect(QUALITY_BUCKETS.GOOD).toBe(70);
     expect(QUALITY_BUCKETS.FAIR).toBe(50);

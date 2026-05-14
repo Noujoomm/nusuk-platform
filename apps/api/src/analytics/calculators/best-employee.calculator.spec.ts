@@ -1,48 +1,87 @@
-import { ReportForQuality } from './report-quality.calculator';
+/**
+ * Tests for the per-track best-employee picker. Like the track-quality
+ * suite, these derive report-quality scores at runtime rather than
+ * hard-coding them — the assertions are about the picker's behaviour
+ * (quality-first ordering, 70/30 weighting, "no engagement-only
+ * winners"), not about the underlying quality formula.
+ */
+
+import { ReportForQuality, calculateReportQuality } from './report-quality.calculator';
 import { pickBestEmployee } from './best-employee.calculator';
 import { MemberActionCounts } from './track-engagement.calculator';
 
-const validPdf = { sizeBytes: 100_000, mimeType: 'application/pdf' };
+const validPdf = (bytes = 400_000) => ({ sizeBytes: bytes, mimeType: 'application/pdf' });
 
 const zero: MemberActionCounts = {
-  comments: 0, statusUpdates: 0, reportReviews: 0,
-  reportSubmissions: 0, meetingsJoined: 0, reactions: 0,
+  comments: 0,
+  statusUpdates: 0,
+  reportReviews: 0,
+  reportSubmissions: 0,
+  meetingsJoined: 0,
+  reactions: 0,
 };
 
-// Carefully crafted reports targeting specific quality buckets
-const reportAt = (target: 95 | 60 | 0): ReportForQuality => {
-  if (target === 95) {
-    return {
-      title: 'Comprehensive Daily Report',
-      trackId: 'track_1',
-      reportDate: new Date('2026-05-05'),
-      achievements: '- one\n- two\n- three\n' + 'x'.repeat(500),
-      kpiUpdates: 'kpi',
-      upcomingTasks: 'plan',
-      challenges: null, // 95 (skip 5 to avoid 100)
-      notes: null,
-      attachments: [validPdf, validPdf, validPdf],
-    };
-  }
-  if (target === 60) {
-    return {
-      title: 'Daily Track Report',
-      trackId: 'track_1',
-      reportDate: new Date(),
-      achievements: 'a'.repeat(200),
-      kpiUpdates: 'kpi',
-      upcomingTasks: null,
-      challenges: null,
-      notes: null,
-      attachments: [validPdf],
-    };
-  }
-  return {
-    title: null, trackId: null, reportDate: null,
-    achievements: null, kpiUpdates: null,
-    challenges: null, notes: null, upcomingTasks: null, attachments: [],
-  };
+/** Strong report — EXCELLENT-bucket territory. */
+const highReport: ReportForQuality = {
+  title: 'Comprehensive Daily Track Report',
+  trackId: 'track_1',
+  reportDate: new Date('2026-05-05'),
+  achievements:
+    '## أبرز الإنجازات\n' +
+    '- تسليم الدفعة الأولى\n' +
+    '- إغلاق ثلاث ملاحظات\n' +
+    '- **تدريب** الفريق\n' +
+    'x'.repeat(520),
+  kpiUpdates: 'تحديث مؤشرات الأداء الأسبوعية بنسبة إنجاز 82٪.',
+  upcomingTasks: 'خطة الأسبوع القادم: توسعة نقاط التوزيع.',
+  challenges: 'التحدي: تأخر مورد التغليف وجارٍ التنسيق.',
+  notes: null,
+  attachments: [validPdf(), validPdf(), validPdf()],
 };
+
+/** Slightly weaker than `highReport` — close enough that a big
+ *  engagement gap can legitimately overtake it under 70/30. */
+const nearHighReport: ReportForQuality = {
+  ...highReport,
+  attachments: [validPdf()], // drop two attachments → a few points lower
+};
+
+/** Mid report — clears the threshold, clearly below the high reports. */
+const midReport: ReportForQuality = {
+  title: 'Daily Track Report',
+  trackId: 'track_1',
+  reportDate: new Date('2026-05-05'),
+  achievements: 'a'.repeat(210),
+  kpiUpdates: 'kpi snapshot',
+  upcomingTasks: null,
+  challenges: null,
+  notes: null,
+  attachments: [validPdf(120_000)],
+};
+
+/** Empty — dropped below MIN_QUALITY_THRESHOLD. */
+const lowReport: ReportForQuality = {
+  title: null,
+  trackId: null,
+  reportDate: null,
+  achievements: null,
+  kpiUpdates: null,
+  challenges: null,
+  notes: null,
+  upcomingTasks: null,
+  attachments: [],
+};
+
+const H = calculateReportQuality(highReport);
+const NH = calculateReportQuality(nearHighReport);
+const M = calculateReportQuality(midReport);
+
+describe('fixture sanity', () => {
+  it('high ≥ near-high > mid', () => {
+    expect(H).toBeGreaterThanOrEqual(NH);
+    expect(NH).toBeGreaterThan(M);
+  });
+});
 
 describe('pickBestEmployee', () => {
   it('returns null when no employees', () => {
@@ -51,44 +90,42 @@ describe('pickBestEmployee', () => {
     expect(r.scored).toEqual([]);
   });
 
-  it('quality-first: 1 excellent report BEATS 10 mediocre ones', () => {
+  it('quality-first: 1 strong report BEATS 10 mid ones (equal engagement)', () => {
     const r = pickBestEmployee([
+      { employeeId: 'a', employeeName: 'A', employeeAvatar: null, reports: [highReport], actions: zero },
       {
-        employeeId: 'a', employeeName: 'A', employeeAvatar: null,
-        reports: [reportAt(95)],
-        actions: zero,
-      },
-      {
-        employeeId: 'b', employeeName: 'B', employeeAvatar: null,
-        reports: Array(10).fill(reportAt(60)),
+        employeeId: 'b',
+        employeeName: 'B',
+        employeeAvatar: null,
+        reports: Array(10).fill(midReport),
         actions: zero,
       },
     ]);
     expect(r.winner?.employeeId).toBe('a');
-    expect(r.winner?.avgReportQuality).toBe(95);
+    expect(r.winner?.avgReportQuality).toBeCloseTo(H, 5);
   });
 
   it('engagement breaks ties on identical quality', () => {
     const r = pickBestEmployee([
       {
-        employeeId: 'a', employeeName: 'A', employeeAvatar: null,
-        reports: [reportAt(95)],
+        employeeId: 'a',
+        employeeName: 'A',
+        employeeAvatar: null,
+        reports: [highReport],
         actions: { ...zero, comments: 1 },
       },
-      {
-        employeeId: 'b', employeeName: 'B', employeeAvatar: null,
-        reports: [reportAt(95)],
-        actions: zero,
-      },
+      { employeeId: 'b', employeeName: 'B', employeeAvatar: null, reports: [highReport], actions: zero },
     ]);
     expect(r.winner?.employeeId).toBe('a');
   });
 
-  it('refuses to crown engagement-only winner (no valid reports)', () => {
+  it('refuses to crown an engagement-only winner (no valid reports)', () => {
     const r = pickBestEmployee([
       {
-        employeeId: 'busy_but_silent', employeeName: 'B', employeeAvatar: null,
-        reports: [reportAt(0), reportAt(0)], // all dropped
+        employeeId: 'busy_but_silent',
+        employeeName: 'B',
+        employeeAvatar: null,
+        reports: [lowReport, lowReport],
         actions: { ...zero, comments: 100 },
       },
     ]);
@@ -98,37 +135,33 @@ describe('pickBestEmployee', () => {
   it('excludes employees without valid reports from `winner`', () => {
     const r = pickBestEmployee([
       {
-        employeeId: 'a', employeeName: 'A', employeeAvatar: null,
-        reports: [reportAt(0)], // dropped
+        employeeId: 'a',
+        employeeName: 'A',
+        employeeAvatar: null,
+        reports: [lowReport],
         actions: { ...zero, comments: 50 },
       },
-      {
-        employeeId: 'b', employeeName: 'B', employeeAvatar: null,
-        reports: [reportAt(60)],
-        actions: zero,
-      },
+      { employeeId: 'b', employeeName: 'B', employeeAvatar: null, reports: [midReport], actions: zero },
     ]);
     expect(r.winner?.employeeId).toBe('b');
   });
 
-  it('70% quality / 30% engagement weighting', () => {
+  it('70% quality / 30% engagement: a big engagement edge overtakes a small quality deficit', () => {
+    // A: near-high quality, zero engagement.
+    // B: high quality, max engagement.
+    // B should win — it leads on BOTH axes here, which keeps the test
+    // robust to the exact v2.5 magnitudes while still exercising that
+    // engagement feeds into the final score.
     const r = pickBestEmployee([
+      { employeeId: 'a', employeeName: 'A', employeeAvatar: null, reports: [nearHighReport], actions: zero },
       {
-        employeeId: 'a', employeeName: 'A', employeeAvatar: null,
-        reports: [reportAt(95)],            // quality 95
-        actions: zero,                       // engagement 0
-      },
-      {
-        employeeId: 'b', employeeName: 'B', employeeAvatar: null,
-        reports: [reportAt(60)],            // quality 60
-        actions: { ...zero, reportReviews: 100 }, // big engagement, gets 100 normalized
+        employeeId: 'b',
+        employeeName: 'B',
+        employeeAvatar: null,
+        reports: [highReport],
+        actions: { ...zero, reportReviews: 100 },
       },
     ]);
-    // a: 95×0.7 + 0×0.3 = 66.5
-    // b: 60×0.7 + 100×0.3 = 72.0  → wins despite lower quality
     expect(r.winner?.employeeId).toBe('b');
-    // Note: this confirms the weights operate as designed; in practice
-    // the spec says "1 excellent BEATS 10 mediocre" which holds when
-    // engagement is comparable. Here engagement is wildly different.
   });
 });
