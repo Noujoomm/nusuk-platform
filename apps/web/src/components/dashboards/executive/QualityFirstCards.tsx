@@ -194,8 +194,18 @@ function TopTracksCard({ tracks }: { tracks: TrackTop[] }) {
               <span>⭐ جودة التقارير: {fmtPct(t.breakdown.avgReportQuality.score)}</span>
               <span>💬 تفاعل القائد: {fmtPct(t.breakdown.trackLeadEngagement.score)}</span>
             </div>
+            {/* v2.5: lead with the actual numeric average instead of
+                the old fixed-bucket label ("1 جيد، 1 مقبول"). The
+                continuous score makes the average meaningful — two
+                tracks with different work no longer collapse onto the
+                same phrase. The bucket counts stay as a faint trailing
+                detail (still real signal, just no longer the headline). */}
             <div className="text-[11px] text-gray-500">
-              📄 {t.metrics.validReportsCount} تقرير {qualityCountsLabel(t.metrics.qualityDistribution)}
+              📄 {t.metrics.validReportsCount} تقرير · متوسط الجودة{' '}
+              <span className="text-gray-300">{fmtPct(t.metrics.avgReportQuality)}</span>
+              {qualityCountsLabel(t.metrics.qualityDistribution) && (
+                <span className="text-gray-600"> {qualityCountsLabel(t.metrics.qualityDistribution)}</span>
+              )}
             </div>
             <div className="h-1 rounded-full bg-white/5 overflow-hidden mt-1">
               <div
