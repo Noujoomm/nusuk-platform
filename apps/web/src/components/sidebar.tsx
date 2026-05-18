@@ -33,6 +33,7 @@ import {
   Receipt,
   Fingerprint,
   Files,
+  Archive,
   ScanSearch,
 } from 'lucide-react';
 import NotificationBell from '@/components/notifications/notification-bell';
@@ -60,6 +61,7 @@ const NAV_ITEMS = [
   { href: '/distribution-analyzer', label: 'محلل نسبة الإنجاز', icon: ScanSearch, roles: ['admin', 'system_manager', 'pm', 'track_lead', 'employee', 'hr'] },
   { href: '/attendance', label: 'الحضور والانصراف', icon: Fingerprint, roles: ['admin', 'system_manager'] },
   { href: '/attendance/uploads', label: 'سجل ملفات الحضور', icon: Files, roles: ['admin', 'system_manager'] },
+  { href: '/attendance/archive', label: 'أرشيف الحضور', icon: Archive, roles: ['admin', 'system_manager'] },
   { href: '/attendance-analytics/makkah', label: 'تحليل حضور مكة', icon: BarChart3, roles: ['admin', 'system_manager'] },
   { href: '/attendance-analytics/madinah', label: 'تحليل حضور المدينة', icon: BarChart3, roles: ['admin', 'system_manager'] },
   { href: '/users', label: 'المستخدمين', icon: Users, roles: ['admin'] },

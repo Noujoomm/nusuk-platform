@@ -10,6 +10,7 @@ import { AttendanceAnalysisService } from './services/attendance-analysis.servic
 import { AttendanceReportDocxService } from './services/attendance-report-docx.service';
 import { AttendanceAnalyticsService } from './services/attendance-analytics.service';
 import { AttendanceOverrideService } from './services/attendance-override.service';
+import { AttendanceArchiveService } from './services/attendance-archive.service';
 
 @Module({
   controllers: [AttendanceController],
@@ -24,6 +25,7 @@ import { AttendanceOverrideService } from './services/attendance-override.servic
     AttendanceReportDocxService,
     AttendanceAnalyticsService,
     AttendanceOverrideService,
+    AttendanceArchiveService,
   ],
   exports: [
     ExcelSeederService,
@@ -36,6 +38,7 @@ import { AttendanceOverrideService } from './services/attendance-override.servic
     AttendanceReportDocxService,
     AttendanceAnalyticsService,
     AttendanceOverrideService,
+    AttendanceArchiveService,
   ],
 })
 export class AttendanceModule {}

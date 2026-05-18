@@ -816,6 +816,13 @@ export const attendanceApi = {
         ...(params.noteAboutLastDay != null ? { noteAboutLastDay: params.noteAboutLastDay ? 'true' : 'false' } : {}),
       },
     }),
+  // ─── Archive (admin / system_manager only) ───
+  archiveCreate: (uploadId: string, notes?: string) =>
+    api.post('/attendance/archive', { uploadId, ...(notes ? { notes } : {}) }),
+  archiveList: (params?: { from?: string; to?: string; page?: number; limit?: number }) =>
+    api.get('/attendance/archive', { params: params ?? {} }),
+  archiveGet: (id: string) => api.get(`/attendance/archive/${id}`),
+  archiveByDate: (date: string) => api.get(`/attendance/archive/by-date/${date}`),
   // ─── File storage ───
   listUploadsPaged: (params?: {
     from?: string;
