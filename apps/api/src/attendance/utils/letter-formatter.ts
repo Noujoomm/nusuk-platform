@@ -13,6 +13,8 @@ const ARABIC_MONTHS = [
 
 export const DEFAULT_RECIPIENT = 'الدكتور/ حسام فقيها';
 
+const ARABIC_INDIC_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+
 export interface AbsenceEntry {
   employeeId: string;
   fullName: string;
@@ -21,13 +23,39 @@ export interface AbsenceEntry {
   absenceDates: Date[];
 }
 
+/** A partial-attendance entry: came and left but worked < 8h. */
+export interface PartialEntry {
+  employeeId: string;
+  fullName: string;
+  shortName?: string;
+  track: string;
+  /** Decimal hours, e.g. 6.5. Always non-null in v2 letters. */
+  hoursWorked: number;
+}
+
+/** A missing-checkout entry: checked in but never checked out. */
+export interface MissingCheckoutEntry {
+  employeeId: string;
+  fullName: string;
+  shortName?: string;
+  track: string;
+}
+
 export interface LetterContext {
   recipientName: string;
   reportType: 'daily' | 'range';
   reportDate?: Date;
   rangeStart?: Date;
   rangeEnd?: Date;
+  /** Category 1 — fully absent. Required (range letter still uses only
+   *  this). For daily letters in v2 it represents `status='absent'`. */
   absences: AbsenceEntry[];
+  /** Category 2 — partial attendance (worked but < 8h). Optional: when
+   *  omitted (range letter, callers that haven't migrated), the letter
+   *  falls back to the single-category v1 layout. */
+  partial?: PartialEntry[];
+  /** Category 3 — missed checkout. Same optionality rules as `partial`. */
+  missingCheckout?: MissingCheckoutEntry[];
   noteAboutLastDay?: boolean;
 }
 
@@ -39,45 +67,41 @@ export interface GeneratedLetter {
     totalAbsences: number;
     uniqueEmployees: number;
     period: string;
+    /** Populated only on v2 (3-category) letters; null on legacy. */
+    categoryCounts?: {
+      absent: number;
+      partial: number;
+      missingCheckout: number;
+    };
   };
 }
 
 // ─── Public API ────────────────────────────────────────────────────────
 
 export function buildLetter(ctx: LetterContext): GeneratedLetter {
-  const lines: string[] = [];
+  // V2 layout (3 sections + on-call note) kicks in when the caller passes
+  // EITHER category-2 or category-3. The range letter and any legacy
+  // caller that supplies only `absences` keeps the original single-section
+  // layout — that's the backward-compatibility hinge.
+  const isThreeCategory = ctx.partial !== undefined || ctx.missingCheckout !== undefined;
 
+  const lines: string[] = [];
   lines.push('السلام عليكم ورحمة الله وبركاته،');
   lines.push('');
   lines.push(`سعادة ${ctx.recipientName}،`);
   lines.push('تحية طيبة وبعد،');
   lines.push('');
 
-  if (ctx.absences.length === 0) {
-    lines.push(
-      `نفيد سعادتكم بأنه تم مراجعة كشف الحضور والانصراف لجميع المسارات، ولم يتم تسجيل أي حالات غياب${formatPeriodPhrase(ctx)}.`,
-    );
+  if (isThreeCategory) {
+    buildThreeCategoryBody(ctx, lines);
   } else {
-    lines.push(
-      'نفيد سعادتكم بأنه تم مراجعة كشف الحضور والانصراف لجميع المسارات، حيث تم تسجيل غياب على النحو التالي:',
-    );
-    lines.push('');
-    for (const a of ctx.absences) {
-      lines.push(formatAbsenceLine(a));
-    }
-    if (ctx.reportType === 'range' && ctx.noteAboutLastDay && ctx.rangeEnd) {
-      lines.push('');
-      lines.push(
-        `كما نود الإشارة إلى أنه لا توجد أي حالات غياب بتاريخ ${formatArabicDate(ctx.rangeEnd, false)}.`,
-      );
-    }
+    buildLegacyBody(ctx, lines);
   }
 
   lines.push('');
   lines.push('وتفضلوا بقبول فائق التحية والتقدير.');
 
   const text = lines.join('\n');
-  // Render: blank line → spacer, otherwise <p>. Wrapped in a div for safe injection.
   const html = lines
     .map((l) => (l === '' ? '<p class="h-3"></p>' : `<p>${escapeHtml(l)}</p>`))
     .join('');
@@ -85,13 +109,103 @@ export function buildLetter(ctx: LetterContext): GeneratedLetter {
   return {
     text,
     html,
-    metadata: {
-      generatedAt: new Date().toISOString(),
-      totalAbsences: ctx.absences.reduce((s, a) => s + a.absenceDates.length, 0),
-      uniqueEmployees: ctx.absences.length,
-      period: describePeriod(ctx),
-    },
+    metadata: buildMetadata(ctx, isThreeCategory),
   };
+}
+
+// ─── Body builders (one per layout) ─────────────────────────────────────
+
+function buildLegacyBody(ctx: LetterContext, lines: string[]): void {
+  if (ctx.absences.length === 0) {
+    lines.push(
+      `نفيد سعادتكم بأنه تم مراجعة كشف الحضور والانصراف لجميع المسارات، ولم يتم تسجيل أي حالات غياب${formatPeriodPhrase(ctx)}.`,
+    );
+    return;
+  }
+  lines.push(
+    'نفيد سعادتكم بأنه تم مراجعة كشف الحضور والانصراف لجميع المسارات، حيث تم تسجيل غياب على النحو التالي:',
+  );
+  lines.push('');
+  for (const a of ctx.absences) lines.push(formatAbsenceLine(a));
+  if (ctx.reportType === 'range' && ctx.noteAboutLastDay && ctx.rangeEnd) {
+    lines.push('');
+    lines.push(
+      `كما نود الإشارة إلى أنه لا توجد أي حالات غياب بتاريخ ${formatArabicDate(ctx.rangeEnd, false)}.`,
+    );
+  }
+}
+
+function buildThreeCategoryBody(ctx: LetterContext, lines: string[]): void {
+  const absent = ctx.absences;
+  const partial = ctx.partial ?? [];
+  const missing = ctx.missingCheckout ?? [];
+
+  lines.push(
+    `نرفع لسعادتكم تقرير الموظفين المتغيبين والمتأخرين عن الدوام${formatPeriodPhrase(ctx)}، علماً بأن موظفي On Call غير مشمولين في هذا التقرير.`,
+  );
+  lines.push('');
+
+  lines.push('أولاً: الموظفون الغائبون كلياً');
+  if (absent.length === 0) {
+    lines.push('لا يوجد');
+  } else {
+    absent.forEach((e, i) => lines.push(`${toArabicIndic(i + 1)}. ${displayName(e)}`));
+  }
+  lines.push('');
+
+  lines.push('ثانياً: الدوام الجزئي (أقل من 8 ساعات)');
+  if (partial.length === 0) {
+    lines.push('لا يوجد');
+  } else {
+    partial.forEach((e, i) =>
+      lines.push(`${toArabicIndic(i + 1)}. ${displayName(e)} — ${formatHoursWorked(e.hoursWorked)}`),
+    );
+  }
+  lines.push('');
+
+  lines.push('ثالثاً: البصمة الناقصة (دخول بدون خروج)');
+  if (missing.length === 0) {
+    lines.push('لا يوجد');
+  } else {
+    missing.forEach((e, i) => lines.push(`${toArabicIndic(i + 1)}. ${displayName(e)}`));
+  }
+}
+
+function buildMetadata(
+  ctx: LetterContext,
+  isThreeCategory: boolean,
+): GeneratedLetter['metadata'] {
+  const absentCount = ctx.absences.length;
+  const partialCount = ctx.partial?.length ?? 0;
+  const missingCount = ctx.missingCheckout?.length ?? 0;
+  const totalAbsences = isThreeCategory
+    ? absentCount + partialCount + missingCount
+    : ctx.absences.reduce((s, a) => s + a.absenceDates.length, 0);
+  const uniqueEmployees = isThreeCategory
+    ? absentCount + partialCount + missingCount
+    : absentCount;
+
+  const meta: GeneratedLetter['metadata'] = {
+    generatedAt: new Date().toISOString(),
+    totalAbsences,
+    uniqueEmployees,
+    period: describePeriod(ctx),
+  };
+  if (isThreeCategory) {
+    meta.categoryCounts = {
+      absent: absentCount,
+      partial: partialCount,
+      missingCheckout: missingCount,
+    };
+  }
+  return meta;
+}
+
+// ─── Display helpers ───────────────────────────────────────────────────
+
+function displayName(e: { fullName: string; shortName?: string; track: string }): string {
+  const base = e.shortName || e.fullName;
+  return e.track ? `${base} (${e.track})` : base;
 }
 
 // ─── Pure helpers (exported for testing) ───────────────────────────────
@@ -196,4 +310,49 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+// ─── V2 (3-category) helpers ───────────────────────────────────────────
+
+/**
+ * Converts any digits in a string (or a number) to Arabic-Indic
+ * (٠-٩). Non-digit characters pass through unchanged, so "6.5"
+ * → "٦.٥" and ordering markers / Arabic text stay intact.
+ *
+ * Exported for the spec; used internally for list numbering and hours.
+ */
+export function toArabicIndic(value: number | string): string {
+  return String(value).replace(/[0-9]/g, (d) => ARABIC_INDIC_DIGITS[Number(d)]);
+}
+
+/**
+ * "6.5 ساعات" — Arabic-Indic digits, one decimal place, plural rules.
+ *
+ * In real partial-attendance data the value is always in (0, 8), so the
+ * sub-2 / exactly-2 branches rarely fire — but the spec includes both
+ * edge cases and they're cheap to handle.
+ */
+export function formatHoursWorked(h: number): string {
+  // Round to 1 decimal so 6.499999 → 6.5 (Prisma Float arithmetic).
+  const rounded = Math.round(h * 10) / 10;
+  // Use `.toFixed(1)` only when there IS a non-zero decimal — "6.0
+  // ساعات" reads worse than "6 ساعات".
+  const numStr =
+    rounded === Math.trunc(rounded) ? String(Math.trunc(rounded)) : rounded.toFixed(1);
+  return `${toArabicIndic(numStr)} ${pluralizeHours(rounded)}`;
+}
+
+/**
+ * Arabic plural rules for hours (ساعة). Covers the three cases that
+ * actually appear in partial-attendance data:
+ *   - h < 2        → singular "ساعة"
+ *   - h === 2 exact→ dual "ساعتان"
+ *   - h > 2        → plural "ساعات"
+ * 11+ uses singular again in MSA, but partial-attendance hours are
+ * always < 8, so we don't bother with that branch.
+ */
+export function pluralizeHours(h: number): string {
+  if (h === 2) return 'ساعتان';
+  if (h < 2) return 'ساعة';
+  return 'ساعات';
 }
