@@ -110,6 +110,12 @@ interface OfficialLetter {
     totalAbsences: number;
     uniqueEmployees: number;
     period: string;
+    /** Set on v2 daily letters (3-category). Absent on legacy/range letters. */
+    categoryCounts?: {
+      absent: number;
+      partial: number;
+      missingCheckout: number;
+    };
   };
 }
 
@@ -753,8 +759,8 @@ export default function AttendancePage() {
             <div className="flex-1">
               <h2 className="text-lg font-semibold">الخطاب الرسمي للغياب</h2>
               <p className="text-sm text-gray-400 mt-0.5">
-                يحتوي فقط الموظفين بحالة "غائب" لتاريخ {report.upload.reportDate}.
-                موظفو On Call ومن لديه بصمة ناقصة لا يدخلون.
+                ثلاث فئات لتاريخ {report.upload.reportDate}: الغياب الكامل، الدوام
+                الجزئي (&lt; 8 ساعات)، والبصمة الناقصة. موظفو On Call غير مشمولين.
               </p>
             </div>
           </div>
@@ -790,9 +796,18 @@ export default function AttendancePage() {
               />
               <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-gray-500">
                 <span>
-                  {letter.metadata.uniqueEmployees > 0
-                    ? `${letter.metadata.uniqueEmployees} موظف · ${letter.metadata.totalAbsences} غياب`
-                    : 'لا توجد غيابات'}
+                  {letter.metadata.categoryCounts ? (
+                    // v2: show all three category counts so the user can
+                    // sanity-check the letter against the heatmap above.
+                    letter.metadata.uniqueEmployees > 0
+                      ? `${letter.metadata.categoryCounts.absent} غياب كامل · ${letter.metadata.categoryCounts.partial} دوام جزئي · ${letter.metadata.categoryCounts.missingCheckout} بصمة ناقصة`
+                      : 'لا توجد حالات'
+                  ) : (
+                    // Legacy / range letter — single count.
+                    letter.metadata.uniqueEmployees > 0
+                      ? `${letter.metadata.uniqueEmployees} موظف · ${letter.metadata.totalAbsences} غياب`
+                      : 'لا توجد غيابات'
+                  )}
                 </span>
                 <button
                   onClick={handleCopyLetter}

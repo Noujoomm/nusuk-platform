@@ -2,6 +2,9 @@ import {
   buildLetter,
   formatAbsenceLine,
   formatArabicDate,
+  formatHoursWorked,
+  pluralizeHours,
+  toArabicIndic,
   areDatesContinuous,
   deriveShortName,
   AbsenceEntry,
@@ -225,5 +228,158 @@ describe('buildLetter', () => {
     expect(letter.html).toContain('&lt;script&gt;');
     expect(letter.html).toContain('<p>');
     expect(letter.html).not.toContain('<script>');
+  });
+});
+
+// ─── v2 (3-category) layout ───────────────────────────────────────────
+
+describe('toArabicIndic', () => {
+  it('maps each digit to its Arabic-Indic counterpart', () => {
+    expect(toArabicIndic(0)).toBe('٠');
+    expect(toArabicIndic(123456789)).toBe('١٢٣٤٥٦٧٨٩');
+    expect(toArabicIndic('6.5')).toBe('٦.٥');
+  });
+  it('leaves non-digit characters untouched', () => {
+    expect(toArabicIndic('5 ساعات')).toBe('٥ ساعات');
+  });
+});
+
+describe('pluralizeHours', () => {
+  it.each<[number, string]>([
+    [0, 'ساعة'],
+    [0.5, 'ساعة'],
+    [1, 'ساعة'],
+    [1.9, 'ساعة'],
+    [2, 'ساعتان'],
+    [2.5, 'ساعات'],
+    [6.5, 'ساعات'],
+    [7.9, 'ساعات'],
+  ])('h=%s → %s', (h, expected) => {
+    expect(pluralizeHours(h)).toBe(expected);
+  });
+});
+
+describe('formatHoursWorked', () => {
+  it('renders Arabic-Indic digits with one decimal when fractional', () => {
+    expect(formatHoursWorked(6.5)).toBe('٦.٥ ساعات');
+    expect(formatHoursWorked(4.2)).toBe('٤.٢ ساعات');
+  });
+  it('omits the trailing ".0" for whole numbers', () => {
+    expect(formatHoursWorked(7)).toBe('٧ ساعات');
+    expect(formatHoursWorked(2)).toBe('٢ ساعتان');
+  });
+  it('rounds away tiny float noise to a single decimal', () => {
+    // 6.4999... appears routinely in Float arithmetic — must read as 6.5.
+    expect(formatHoursWorked(6.499999)).toBe('٦.٥ ساعات');
+  });
+  it('handles sub-2 values with the singular form', () => {
+    expect(formatHoursWorked(1.5)).toBe('١.٥ ساعة');
+    expect(formatHoursWorked(0.5)).toBe('٠.٥ ساعة');
+  });
+});
+
+describe('buildLetter — v2 (3-category) layout', () => {
+  const baseCtx = (over: Partial<Parameters<typeof buildLetter>[0]> = {}) =>
+    buildLetter({
+      recipientName: DEFAULT_RECIPIENT,
+      reportType: 'daily' as const,
+      reportDate: utc('2026-04-24'),
+      absences: [],
+      partial: [],
+      missingCheckout: [],
+      ...over,
+    });
+
+  it('renders three section headers + "لا يوجد" in every section when empty', () => {
+    const letter = baseCtx();
+    expect(letter.text).toContain('أولاً: الموظفون الغائبون كلياً');
+    expect(letter.text).toContain('ثانياً: الدوام الجزئي (أقل من 8 ساعات)');
+    expect(letter.text).toContain('ثالثاً: البصمة الناقصة (دخول بدون خروج)');
+    // Three "لا يوجد" — one per empty section.
+    expect(letter.text.match(/لا يوجد/g)?.length).toBe(3);
+  });
+
+  it('mentions the on-call exclusion in the intro', () => {
+    const letter = baseCtx();
+    expect(letter.text).toContain('موظفي On Call غير مشمولين في هذا التقرير');
+  });
+
+  it('numbers items with Arabic-Indic digits and shows the track in parentheses', () => {
+    const letter = baseCtx({
+      absences: [
+        { employeeId: 'a', fullName: 'فراس فقيها', shortName: 'فراس فقيها', track: 'الطباعة', absenceDates: [utc('2026-04-24')] },
+        { employeeId: 'b', fullName: 'محمد المالكي', shortName: 'محمد المالكي', track: 'التوزيع', absenceDates: [utc('2026-04-24')] },
+      ],
+    });
+    expect(letter.text).toContain('١. فراس فقيها (الطباعة)');
+    expect(letter.text).toContain('٢. محمد المالكي (التوزيع)');
+  });
+
+  it('renders partial-attendance lines with hours formatted in Arabic-Indic', () => {
+    const letter = baseCtx({
+      partial: [
+        { employeeId: 'a', fullName: 'سعيد العمري', shortName: 'سعيد العمري', track: 'الكاميرات', hoursWorked: 6.5 },
+        { employeeId: 'b', fullName: 'حامد الصايغ', shortName: 'حامد الصايغ', track: 'التدريب', hoursWorked: 4.2 },
+      ],
+    });
+    expect(letter.text).toContain('١. سعيد العمري (الكاميرات) — ٦.٥ ساعات');
+    expect(letter.text).toContain('٢. حامد الصايغ (التدريب) — ٤.٢ ساعات');
+  });
+
+  it('renders missing-checkout entries by name only (no hours)', () => {
+    const letter = baseCtx({
+      missingCheckout: [
+        { employeeId: 'a', fullName: 'خالد العتيبي', shortName: 'خالد العتيبي', track: 'الطباعة' },
+      ],
+    });
+    expect(letter.text).toContain('١. خالد العتيبي (الطباعة)');
+    expect(letter.text).not.toContain('ساعة'); // never has hours in this section
+  });
+
+  it('shows "لا يوجد" only for empty sections (mixed-fill case)', () => {
+    const letter = baseCtx({
+      absences: [
+        { employeeId: 'a', fullName: 'فراس فقيها', shortName: 'فراس فقيها', track: 'الطباعة', absenceDates: [utc('2026-04-24')] },
+      ],
+      // partial empty, missing empty
+    });
+    expect(letter.text.match(/لا يوجد/g)?.length).toBe(2);
+  });
+
+  it('populates `categoryCounts` and the unified counts on metadata', () => {
+    const letter = baseCtx({
+      absences: [
+        { employeeId: 'a', fullName: 'فراس فقيها', shortName: 'فراس', track: 'A', absenceDates: [utc('2026-04-24')] },
+        { employeeId: 'b', fullName: 'حامد الصايغ', shortName: 'حامد', track: 'A', absenceDates: [utc('2026-04-24')] },
+      ],
+      partial: [
+        { employeeId: 'c', fullName: 'سعيد العمري', shortName: 'سعيد', track: 'B', hoursWorked: 6.5 },
+      ],
+      missingCheckout: [
+        { employeeId: 'd', fullName: 'خالد العتيبي', shortName: 'خالد', track: 'B' },
+        { employeeId: 'e', fullName: 'مازن', shortName: 'مازن', track: 'C' },
+      ],
+    });
+    expect(letter.metadata.categoryCounts).toEqual({ absent: 2, partial: 1, missingCheckout: 2 });
+    expect(letter.metadata.uniqueEmployees).toBe(5);
+    expect(letter.metadata.totalAbsences).toBe(5);
+  });
+});
+
+describe('buildLetter — backward compat (no partial / missingCheckout)', () => {
+  it('renders the legacy single-section layout when only `absences` is provided', () => {
+    const letter = buildLetter({
+      recipientName: DEFAULT_RECIPIENT,
+      reportType: 'range',
+      rangeStart: utc('2026-04-09'),
+      rangeEnd: utc('2026-04-24'),
+      absences: [
+        { employeeId: 'a', fullName: 'فراس فقيها', shortName: 'فراس فقيها', track: 'الطباعة', absenceDates: [utc('2026-04-10')] },
+      ],
+    });
+    // Legacy layout: no section headers, no on-call note, no categoryCounts.
+    expect(letter.text).not.toContain('أولاً:');
+    expect(letter.text).not.toContain('موظفي On Call');
+    expect(letter.metadata.categoryCounts).toBeUndefined();
   });
 });
