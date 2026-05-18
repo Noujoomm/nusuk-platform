@@ -110,6 +110,9 @@ model User {
   // Smart text enhancer audit trail
   textEnhancements TextEnhancementLog[] @relation("TextEnhancementUser")
 
+  // Attendance daily-report archives
+  attendanceArchives AttendanceArchive[] @relation("AttendanceArchivedBy")
+
   @@map("users")
 }
 
@@ -2243,6 +2246,7 @@ model PdfAttendanceUpload {
   summaries PdfDailyAttendanceSummary[]
   downloads PdfAttendanceFileDownload[]
   analysis  PdfAttendanceAiAnalysis?
+  archive   AttendanceArchive?
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -2492,4 +2496,51 @@ model TextEnhancementLog {
   @@index([createdAt])
   @@index([trackId, interventionLevel])
   @@map("text_enhancement_logs")
+}
+
+/// Frozen snapshot of one daily attendance report (one `PdfAttendanceUpload`).
+///
+/// Why a JSON snapshot instead of relational rows: the existing master
+/// roster (`PdfAttendanceEmployee`) is mutable — employees get renamed,
+/// rolled off, their `track` reassigned. We want the archive to read the
+/// way the report did on the day it was closed, regardless of later edits.
+/// Storing the rendered rows as JSON gives that immutability for free,
+/// and the daily-report data is small (a few hundred rows × ~12 fields)
+/// so the JSON size is negligible.
+///
+/// Uniqueness is on `uploadId`, not on `archiveDate`: HR routinely
+/// re-uploads a day's PDF after corrections, producing a NEW upload with
+/// the same date. Each upload that gets closed gets its own archive row.
+/// `archiveDate` is copied alongside for fast list-page filtering.
+///
+/// RBAC: only `admin` and `system_manager` can create / read these.
+/// Enforced in the controller, mirrored by the sidebar role gate.
+model AttendanceArchive {
+  id String @id @default(cuid())
+
+  uploadId    String   @unique @map("upload_id")
+  archiveDate DateTime @map("archive_date") @db.Date
+
+  archivedAt     DateTime @default(now()) @map("archived_at")
+  archivedById   String   @map("archived_by_id")
+  /// Captured at archive time so a later user rename doesn't rewrite history.
+  archivedByName String   @map("archived_by_name")
+
+  totalEmployees Int  @map("total_employees")
+  /// Counts grouped by the platform's `PdfAttendanceStatus` (raw enum
+  /// values) — the frontend collapses them into display buckets.
+  summary        Json
+  /// The full per-row snapshot. Shape documented in the service.
+  snapshot       Json
+
+  notes String? @db.Text
+
+  upload     PdfAttendanceUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  archivedBy User                @relation("AttendanceArchivedBy", fields: [archivedById], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([archiveDate])
+  @@index([archivedById])
+  @@map("attendance_archives")
 }

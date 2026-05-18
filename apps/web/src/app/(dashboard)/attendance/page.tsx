@@ -26,9 +26,12 @@ import {
   ChevronDown,
   MapPin,
   UserPlus,
+  Archive as ArchiveIcon,
+  X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/stores/auth';
 import { attendanceApi } from '@/lib/api';
 import { parseFilenameFromHeaders, triggerBrowserDownload } from '@/lib/download';
@@ -180,6 +183,13 @@ export default function AttendancePage() {
   const [letterLoading, setLetterLoading] = useState(false);
   const [letterCopied, setLetterCopied] = useState(false);
 
+  // Archive (close-and-archive) — opens a modal for explicit confirmation
+  // before freezing the daily report into an immutable snapshot.
+  const router = useRouter();
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
+  const [archiveNotes, setArchiveNotes] = useState('');
+  const [archivingNow, setArchivingNow] = useState(false);
+
   const [previewOpen, setPreviewOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [rosterOnly, setRosterOnly] = useState(true);
@@ -292,6 +302,30 @@ export default function AttendancePage() {
       toast.error('تعذّر النسخ — انسخ النص يدوياً من الصندوق');
     }
   }, [letter]);
+
+  const handleConfirmArchive = useCallback(async () => {
+    if (!report?.upload.id || archivingNow) return;
+    setArchivingNow(true);
+    const tid = toast.loading('جارٍ أرشفة الكشف…');
+    try {
+      const { data } = await attendanceApi.archiveCreate(
+        report.upload.id,
+        archiveNotes.trim() || undefined,
+      );
+      toast.success('تم إغلاق الكشف وأرشفته ✓', { id: tid });
+      router.push(`/attendance/archive/${data.id}`);
+    } catch (err: any) {
+      const status = err?.response?.status;
+      const msg =
+        status === 409
+          ? 'هذه الرفعة مؤرشفة مسبقاً.'
+          : status === 403
+            ? 'ليس لديك صلاحية للأرشفة.'
+            : err?.response?.data?.message || 'تعذّر أرشفة الكشف.';
+      toast.error(msg, { id: tid });
+      setArchivingNow(false);
+    }
+  }, [report, archiveNotes, archivingNow, router]);
 
   const handleDownloadOriginal = useCallback(async () => {
     if (!report?.upload.id) return;
@@ -819,6 +853,107 @@ export default function AttendancePage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── Close & Archive ─── */}
+      {report && !reportLoading && (
+        <div className="rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 p-6">
+          <div className="flex items-start gap-3 flex-wrap">
+            <div className="rounded-xl bg-gray-500/20 p-2.5">
+              <ArchiveIcon className="w-5 h-5 text-gray-300" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-semibold">إغلاق وأرشفة الكشف</h2>
+              <p className="text-sm text-gray-400 mt-0.5">
+                حفظ نسخة مجمَّدة من الكشف لا تتأثر بأي تعديل لاحق على بيانات الموظفين.
+                للقراءة من{' '}
+                <Link href="/attendance/archive" className="text-amber-300 hover:text-amber-200">
+                  أرشيف الحضور
+                </Link>
+                .
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setArchiveModalOpen(true)}
+              className="rounded-lg bg-gray-500/20 border border-gray-400/40 text-gray-100 px-4 py-2 text-sm hover:bg-gray-500/30 flex items-center gap-2"
+            >
+              <ArchiveIcon className="w-4 h-4" />
+              إغلاق وأرشفة
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Archive confirm modal */}
+      {archiveModalOpen && report && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          dir="rtl"
+          onClick={() => !archivingNow && setArchiveModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-gray-900/95 backdrop-blur shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+              <h3 className="font-semibold flex items-center gap-2">
+                <ArchiveIcon className="w-5 h-5 text-amber-300" />
+                تأكيد إغلاق الكشف وأرشفته
+              </h3>
+              <button
+                type="button"
+                onClick={() => !archivingNow && setArchiveModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white"
+                aria-label="إغلاق"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </header>
+            <div className="p-5 space-y-3 text-sm">
+              <p className="text-gray-300">
+                ستُحفَظ نسخة كاملة من كشف يوم{' '}
+                <span className="font-semibold text-white">{report.upload.reportDate}</span>{' '}
+                كأرشيف غير قابل للتعديل. الأرشيف سيبقى دقيقاً حتى لو غيّرت بيانات الموظفين لاحقاً.
+              </p>
+              <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 text-amber-200 text-xs">
+                ⚠️ لا يمكن أرشفة نفس الرفعة مرتين.
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1.5">ملاحظة (اختيارية)</label>
+                <textarea
+                  value={archiveNotes}
+                  onChange={(e) => setArchiveNotes(e.target.value)}
+                  rows={3}
+                  placeholder="أي ملاحظة تفيد المراجعة لاحقاً..."
+                  disabled={archivingNow}
+                  className="w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-brand-400/50 disabled:opacity-50"
+                />
+              </div>
+            </div>
+            <footer className="px-5 py-3 border-t border-white/5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setArchiveModalOpen(false)}
+                disabled={archivingNow}
+                className="px-4 py-2 rounded-lg text-sm text-gray-300 hover:bg-white/5 disabled:opacity-50"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmArchive}
+                disabled={archivingNow}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm bg-amber-500/20 border border-amber-400/40 text-amber-100 hover:bg-amber-500/30 disabled:opacity-50 disabled:cursor-wait"
+              >
+                {archivingNow ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArchiveIcon className="w-4 h-4" />}
+                {archivingNow ? 'جارٍ الأرشفة...' : 'تأكيد الأرشفة'}
+              </button>
+            </footer>
+          </div>
         </div>
       )}
 

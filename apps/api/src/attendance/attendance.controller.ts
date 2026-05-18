@@ -26,6 +26,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ExcelSeederService } from './services/excel-seeder.service';
 import { PdfUploadService } from './services/pdf-upload.service';
 import { LetterGeneratorService } from './services/letter-generator.service';
+import { AttendanceArchiveService } from './services/attendance-archive.service';
 import { AttendanceExportService, ExportScope } from './services/attendance-export.service';
 import { AbsenceService } from './services/absence.service';
 import { AttendanceAnalysisService } from './services/attendance-analysis.service';
@@ -62,6 +63,7 @@ export class AttendanceController {
     private reportDocx: AttendanceReportDocxService,
     private analytics: AttendanceAnalyticsService,
     private overrides: AttendanceOverrideService,
+    private archives: AttendanceArchiveService,
   ) {}
 
   // ─── AI ANALYSIS (cached in DB, refresh on demand) ───
@@ -577,4 +579,81 @@ export class AttendanceController {
     );
     return res.send(buffer);
   }
+
+  // ─── Daily-report archive (admin / system_manager only) ───
+  //
+  // Freezes one upload's attendance report into a JSON snapshot so it can
+  // be reviewed later without being affected by edits to the master roster
+  // (employee renames, rolloffs, re-analysis). Uniqueness is on uploadId —
+  // re-uploads of the same day produce a new upload and therefore a new
+  // archive row.
+
+  @Post('archive')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'system_manager')
+  async createArchive(
+    @Body() body: { uploadId?: string; notes?: string },
+    @CurrentUser() user: { id: string; nameAr?: string; name?: string; role: string },
+  ) {
+    if (!body?.uploadId) {
+      throw new BadRequestException('uploadId مطلوب');
+    }
+    return this.archives.archiveDailyAttendance({
+      uploadId: body.uploadId,
+      userId: user.id,
+      userName: user.nameAr || user.name || user.id,
+      userRole: user.role,
+      notes: body.notes,
+    });
+  }
+
+  @Get('archive')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'system_manager')
+  async listArchives(
+    @CurrentUser() user: { role: string },
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.archives.listArchives(user.role, {
+      from: from ? parseDateOnly(from) : undefined,
+      to: to ? parseDateOnly(to) : undefined,
+      page: page ? parseInt(page, 10) : undefined,
+      limit: limit ? parseInt(limit, 10) : undefined,
+    });
+  }
+
+  @Get('archive/by-date/:date')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'system_manager')
+  async getArchiveByDate(
+    @Param('date') date: string,
+    @CurrentUser() user: { role: string },
+  ) {
+    const parsed = parseDateOnly(date);
+    if (!parsed) throw new BadRequestException('تاريخ غير صالح (YYYY-MM-DD)');
+    return this.archives.getArchiveByDate(user.role, parsed);
+  }
+
+  @Get('archive/:id')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'system_manager')
+  async getArchive(
+    @Param('id') id: string,
+    @CurrentUser() user: { role: string },
+  ) {
+    return this.archives.getArchiveById(user.role, id);
+  }
+}
+
+function parseDateOnly(s: string): Date {
+  // Accept "YYYY-MM-DD"; reject anything else as undefined so the caller
+  // can 400 cleanly.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    throw new BadRequestException('تاريخ غير صالح (YYYY-MM-DD)');
+  }
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
 }
