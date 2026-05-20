@@ -180,6 +180,7 @@ model Track {
 
   dailyPerformance DailyTrackPerformance[]
   weeklyCumulative WeeklyCumulativeScore[]
+  rankingSnapshots TrackRankingSnapshot[]
 
   @@map("tracks")
 }
@@ -2543,4 +2544,42 @@ model AttendanceArchive {
   @@index([archiveDate])
   @@index([archivedById])
   @@map("attendance_archives")
+}
+
+/// Archive of the track-ranking as it appeared on the executive dashboard.
+/// Captured by cron (daily at 00:00 Asia/Riyadh for the day just ended,
+/// weekly on Sunday for the week just ended). Distinct from
+/// `DailyTrackPerformance` — that's the scoring engine's own snapshot
+/// (all the quality-first fields); this is a lean, display-shaped record
+/// purpose-built for the "ranking archive" view, with the SAME percentage
+/// the card showed (`qualityPercent` = the card's headline score).
+///
+/// `period` is a plain string ('DAILY' | 'WEEKLY') to mirror the
+/// lightweight style of ProductivitySnapshot (no new enum). `snapshotDate`
+/// is the day (DAILY) or the week-start Sunday (WEEKLY). The composite
+/// unique key blocks duplicate cron runs.
+model TrackRankingSnapshot {
+  id           String   @id @default(cuid())
+  period       String // 'DAILY' | 'WEEKLY'
+  snapshotDate DateTime @map("snapshot_date") @db.Date
+
+  trackId      String  @map("track_id")
+  trackNameAr  String  @map("track_name_ar")
+  /// Display-only — captured at snapshot time so a later rename or
+  /// lead change doesn't rewrite the archived card.
+  leaderNameAr String? @map("leader_name_ar")
+
+  rank           Int
+  /// The exact headline percentage the dashboard card showed (after the
+  /// quality-only change this equals average report quality).
+  qualityPercent Float @map("quality_percent")
+  reportCount    Int   @default(0) @map("report_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  track Track @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([period, snapshotDate, trackId])
+  @@index([period, snapshotDate])
+  @@map("track_ranking_snapshots")
 }
