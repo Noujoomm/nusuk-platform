@@ -10,6 +10,7 @@ import {
 } from '@/components/dashboards/executive';
 import type { Analytics } from '@/components/dashboards/executive';
 import { QualityFirstCards } from '@/components/dashboards/executive/QualityFirstCards';
+import { TrackRankingArchive } from '@/components/dashboards/executive/TrackRankingArchive';
 
 const AUTO_REFRESH_INTERVAL = 15_000;
 
@@ -154,6 +155,7 @@ export default function ExecutiveDashboardPage() {
       {/* ─── Quality-First Performance ───────────── */}
       <SectionTitle title="أداء المسارات (الجودة أولاً)" icon={Target} id="quality-performance" />
       <QualityFirstCards />
+      <TrackRankingArchive />
 
       {/* ─── Charts ──────────────────────────────── */}
       <SectionTitle title="الرسوم البيانية والتحليلات" icon={Activity} id="charts" />

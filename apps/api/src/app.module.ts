@@ -31,6 +31,7 @@ import { GanttModule } from './gantt/gantt.module';
 import { ExecutiveTasksModule } from './executive-tasks/executive-tasks.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { WeeklyCumulativeModule } from './analytics/weekly-cumulative/weekly-cumulative.module';
+import { TrackRankingArchiveModule } from './analytics/track-ranking-archive/track-ranking-archive.module';
 import { DistributionModule } from './distribution/distribution.module';
 import { AiEngineModule } from './ai-engine/ai-engine.module';
 import { ProductivityModule } from './productivity/productivity.module';
@@ -79,6 +80,7 @@ import { RootController } from './root.controller';
     ExecutiveTasksModule,
     AnalyticsModule,
     WeeklyCumulativeModule,
+    TrackRankingArchiveModule,
     DistributionModule,
     AiEngineModule,
     ProductivityModule,

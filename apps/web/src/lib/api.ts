@@ -642,6 +642,11 @@ export const performanceApi = {
     api.get('/performance/history', { params: { from, to } }),
   recalculate: (date?: string) =>
     api.post('/performance/recalculate', null, { params: date ? { date } : {} }),
+  // ─── Track-ranking archive ───
+  rankingArchive: (period: 'DAILY' | 'WEEKLY', date?: string) =>
+    api.get('/analytics/track-ranking-archive', {
+      params: { period, ...(date ? { date } : {}) },
+    }),
 };
 
 // ─── Weekly Cumulative Track Ranking ───

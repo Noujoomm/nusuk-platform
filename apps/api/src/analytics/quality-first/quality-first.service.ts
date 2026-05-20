@@ -48,8 +48,14 @@ import {
 } from '../calculators/best-employee.calculator';
 import { riyadhDateBoundaries, riyadhDateString } from '../utils/riyadh-time.util';
 
-const QUALITY_WEIGHT = 0.6;
-const ENGAGEMENT_WEIGHT = 0.4;
+// Track ranking is the average report quality, full stop. Lead
+// engagement is shown on the card as a display-only number but does NOT
+// enter the score (previously it was 40% of a composite, which capped
+// the headline % well below the real quality). Keeping the constant at
+// 1.0 / 0.0 documents the decision and keeps the breakdown shape stable
+// for the frontend.
+const QUALITY_WEIGHT = 1.0;
+const ENGAGEMENT_WEIGHT = 0.0;
 
 export interface TrackTopRecord {
   rank: number;
@@ -132,6 +138,18 @@ export class QualityFirstPerformanceService {
     const today = riyadhDateString(new Date());
     const { start } = riyadhDateBoundaries(today);
     return this.computeForRange(today, start);
+  }
+
+  /**
+   * Same computation as `getTodayPerformance`, but for an arbitrary Riyadh
+   * calendar date ("YYYY-MM-DD"). Used by the ranking-archive cron to
+   * snapshot the day that just ended at 00:00 Riyadh — guarantees the
+   * archived percentages come from the EXACT same source as the dashboard
+   * card (no divergent re-derivation).
+   */
+  async getPerformanceForDate(dateStr: string): Promise<TodayPerformance> {
+    const { start } = riyadhDateBoundaries(dateStr);
+    return this.computeForRange(dateStr, start);
   }
 
   async getTrackBreakdown(trackId: string): Promise<{
@@ -268,7 +286,9 @@ export class QualityFirstPerformanceService {
       const lead = leadByTrack.get(p.trackId);
       const qScore = p.quality.score;
       const eScore = lead?.normalizedScore ?? 0;
-      const finalScore = qScore * QUALITY_WEIGHT + eScore * ENGAGEMENT_WEIGHT;
+      // Ranking = average report quality only. `eScore` is carried into
+      // the breakdown for display but contributes 0 to the final score.
+      const finalScore = qScore * QUALITY_WEIGHT; // ENGAGEMENT_WEIGHT is 0
       return {
         rank: 0,
         trackId: p.trackId,
