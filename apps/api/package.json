@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "postinstall": "prisma generate --schema=prisma/schema.prisma",
-    "build": "npx nest build",
+    "build": "prisma generate --schema=prisma/schema.prisma && npx nest build",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/src/main.js",
