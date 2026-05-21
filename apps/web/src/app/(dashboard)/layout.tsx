@@ -7,6 +7,8 @@ import { useAuth } from '@/stores/auth';
 import { useSidebar } from '@/stores/sidebar';
 import { cn } from '@/lib/utils';
 import Sidebar from '@/components/sidebar';
+import { MotionProvider } from '@/components/motion/MotionProvider';
+import { PageTransition } from '@/components/motion/PageTransition';
 import GlobalSearch from '@/components/global-search';
 import BottomDock from '@/components/ui/bottom-dock';
 import ThemeToggle from '@/components/theme-toggle';
@@ -67,6 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   return (
+    <MotionProvider>
     <div className="min-h-screen flex bg-gray-950">
       <Sidebar />
       <main
@@ -96,10 +99,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
           <ThemeToggle />
         </div>
-        {children}
+        <PageTransition>{children}</PageTransition>
       </main>
       <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
       <BottomDock />
     </div>
+    </MotionProvider>
   );
 }

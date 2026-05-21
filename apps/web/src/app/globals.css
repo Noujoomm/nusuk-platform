@@ -256,6 +256,29 @@ html { scroll-behavior: smooth; }
   html { scroll-behavior: auto; }
 }
 
+/* ─── Shimmer skeleton (motion layer) ─── */
+/* GPU-composited sweep (translateX only). RTL: travels right→left. */
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+  animation: shimmer-sweep 1.6s ease-in-out infinite;
+}
+@keyframes shimmer-sweep {
+  100% { transform: translateX(-100%); }
+}
+/* Respect reduced motion: drop the sweep, keep the muted block. */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after { animation: none; display: none; }
+}
+
 /* Firefox uses these instead of `::-webkit-scrollbar`. Same colour
  * tokens as the Webkit rules below so the thumb matches across
  * browsers without a second source of truth. */
