@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Logo } from '@/components/brand/Logo';
 import { useAuth } from '@/stores/auth';
-import { LogIn, Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function LoginPage() {
@@ -50,10 +51,8 @@ export default function LoginPage() {
       </div>
 
       <div className="glass p-6 sm:p-8 w-full max-w-md relative z-10">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-500/20 mb-3">
-            <LogIn className="w-7 h-7 text-brand-400" />
-          </div>
+        <div className="flex flex-col items-center text-center mb-8">
+          <Logo size={56} withWordmark={false} src="/brand/roya-icon.png" className="mb-3" />
           <h1 className="text-2xl font-bold text-white">نظام رؤية</h1>
           <p className="text-gray-400 mt-1 text-sm">نظام إدارة المشاريع</p>
         </div>

@@ -12,7 +12,6 @@ import {
   GitBranch,
   Users,
   LogOut,
-  Shield,
   Target,
   AlertTriangle,
   FileText,
@@ -37,6 +36,7 @@ import {
   ScanSearch,
 } from 'lucide-react';
 import NotificationBell from '@/components/notifications/notification-bell';
+import { Logo } from '@/components/brand/Logo';
 
 const NAV_ITEMS = [
   { href: '/', label: 'لوحة التحكم', icon: LayoutDashboard, roles: ['admin', 'pm', 'track_lead', 'employee', 'hr'] },
@@ -108,15 +108,7 @@ export default function Sidebar() {
       {/* Header */}
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-500/20 flex items-center justify-center">
-              <Shield className="w-5 h-5 text-brand-400" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-white">رؤية</h1>
-              <p className="text-xs text-gray-500">إدارة المشاريع</p>
-            </div>
-          </div>
+          <Logo size={40} src="/brand/roya-icon.png" />
           <NotificationBell />
         </div>
       </div>

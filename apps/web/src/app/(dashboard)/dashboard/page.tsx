@@ -133,14 +133,10 @@ export default function ExecutiveDashboardPage() {
       <DashboardCards data={analytics} />
 
       {/* ─── Performance Gauges ──────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="glass p-6 flex flex-col items-center">
           <ProgressRing value={p.daily_reports_rate || 0} color="#10B981" label="نسبة التقارير اليومية" />
           <p className="text-[10px] text-gray-500 mt-1">التقارير المسلّمة خلال ٣٠ يوم</p>
-        </div>
-        <div className="glass p-6 flex flex-col items-center">
-          <ProgressRing value={p.engagement_rate} color="#0EA5E9" label="نسبة الالتزام بالمتابعة" />
-          <p className="text-[10px] text-gray-500 mt-1">التحديثات اليومية خلال ٧ أيام</p>
         </div>
         <div className="glass p-6 flex flex-col items-center">
           <ProgressRing
