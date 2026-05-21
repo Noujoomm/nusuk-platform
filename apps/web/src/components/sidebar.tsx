@@ -108,7 +108,7 @@ export default function Sidebar() {
       {/* Header */}
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center justify-between">
-          <Logo size={40} />
+          <Logo size={40} src="/brand/roya-icon.png" />
           <NotificationBell />
         </div>
       </div>

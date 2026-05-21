@@ -52,7 +52,7 @@ export default function LoginPage() {
 
       <div className="glass p-6 sm:p-8 w-full max-w-md relative z-10">
         <div className="flex flex-col items-center text-center mb-8">
-          <Logo size={56} withWordmark={false} className="mb-3" />
+          <Logo size={56} withWordmark={false} src="/brand/roya-icon.png" className="mb-3" />
           <h1 className="text-2xl font-bold text-white">نظام رؤية</h1>
           <p className="text-gray-400 mt-1 text-sm">نظام إدارة المشاريع</p>
         </div>

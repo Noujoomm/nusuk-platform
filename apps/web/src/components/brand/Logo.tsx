@@ -37,13 +37,21 @@ export function Logo({ size = 40, withWordmark = true, src, className }: LogoPro
           width: size,
           height: size,
           borderRadius: radius,
-          // Constant gradient tile in both themes (brand guide rule).
-          backgroundImage: 'var(--gradient-brand)',
+          // The official icon already carries its own Roya-blue gradient,
+          // so only paint the gradient tile for the fallback glyph.
+          backgroundImage: src ? undefined : 'var(--gradient-brand)',
         }}
         aria-hidden={withWordmark}
       >
         {src ? (
-          <Image src={src} alt="رؤية" width={size} height={size} priority />
+          <Image
+            src={src}
+            alt="رؤية"
+            width={size}
+            height={size}
+            priority
+            className="w-full h-full object-cover"
+          />
         ) : (
           // Gradient tile + subtle "ر" glyph until the official PNG lands.
           <span
