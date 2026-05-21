@@ -2,8 +2,16 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Logo } from '@/components/brand/Logo';
+
+// Lazy + client-only: keeps the canvas field out of SSR and the initial
+// bundle; it self-disables on reduced-motion / touch / weak hardware.
+const AmbientBackground = dynamic(
+  () => import('@/components/motion/AmbientBackground').then((m) => m.AmbientBackground),
+  { ssr: false },
+);
 import { useAuth } from '@/stores/auth';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -44,8 +52,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 p-4">
-      {/* Background glow */}
+      {/* Background glow + ambient particle field (lazy, capability-gated) */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <AmbientBackground />
         <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-brand-500/10 rounded-full blur-[128px]" />
         <div className="absolute bottom-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[128px]" />
       </div>
