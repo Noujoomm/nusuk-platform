@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/stores/auth';
 import { aiInvoiceApi } from '@/lib/api';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 const ACCEPTED = '.pdf,.png,.jpg,.jpeg,.webp';
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -213,7 +214,7 @@ export default function AIInvoiceAnalyzerPage() {
   if (!user) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }
@@ -376,7 +377,7 @@ function AnalyzingView({ phaseIndex, fileName }: { phaseIndex: number; fileName:
   return (
     <div className="py-12 text-center">
       <div className="inline-flex p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-4">
-        <Loader2 className="w-8 h-8 text-emerald-300 animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
       <p className="text-sm text-white mb-2">{fileName}</p>
       <p className="text-base text-emerald-300 font-medium">{PHASES[phaseIndex]}</p>

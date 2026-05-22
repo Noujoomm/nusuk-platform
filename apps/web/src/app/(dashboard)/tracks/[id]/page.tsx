@@ -23,6 +23,7 @@ import { Task } from '@/stores/tasks';
 import CommentThread from '@/components/comments/comment-thread';
 import AchievementSection from '@/components/distribution/AchievementSection';
 import DeviationSection from '@/components/distribution/DeviationSection';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface Track {
   id: string;
@@ -369,7 +370,7 @@ export default function TrackDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }
@@ -582,7 +583,7 @@ export default function TrackDetailPage() {
           {/* Task Cards */}
           {trackTasksLoading ? (
             <div className="flex items-center justify-center h-40">
-              <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+              <RoyaLoader fullScreen={false} size="md" />
             </div>
           ) : trackTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-gray-400">
@@ -872,7 +873,7 @@ export default function TrackDetailPage() {
           {/* Files list */}
           {trackFilesLoading ? (
             <div className="flex items-center justify-center h-40">
-              <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+              <RoyaLoader fullScreen={false} size="md" />
             </div>
           ) : trackFiles.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-gray-400">
@@ -970,7 +971,7 @@ export default function TrackDetailPage() {
           {/* Reports List */}
           {trackReportsLoading ? (
             <div className="flex items-center justify-center h-40">
-              <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+              <RoyaLoader fullScreen={false} size="md" />
             </div>
           ) : trackReports.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-gray-400">

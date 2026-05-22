@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/stores/auth';
 import { aiInvoiceApi } from '@/lib/api';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 const ACCEPTED = '.pdf,.png,.jpg,.jpeg,.webp';
 const ALLOWED_MIME = [
@@ -389,7 +390,7 @@ export default function AIBatchInvoicePage() {
   if (!user) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }
@@ -625,7 +626,7 @@ function AnalyzingView({
     <div className="glass p-8 rounded-2xl border border-white/10">
       <div className="text-center mb-6">
         <div className="inline-flex p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 mb-3">
-          <Loader2 className="w-7 h-7 text-emerald-300 animate-spin" />
+          <RoyaLoader fullScreen={false} size="md" />
         </div>
         <p className="text-base text-emerald-300 font-medium">
           يجري تحليل {files.length} فاتورة بالتوازي...

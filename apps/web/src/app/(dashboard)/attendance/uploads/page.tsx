@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   Files,
   Shield,
-  Loader2,
   Download,
   Eye,
   Trash2,
@@ -25,6 +24,7 @@ import { attendanceApi } from '@/lib/api';
 import { parseFilenameFromHeaders, triggerBrowserDownload } from '@/lib/download';
 import { PreviewDialog } from '@/components/attendance/preview-dialog';
 import { AnalysisDialog } from '@/components/attendance/analysis-dialog';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface UploadItem {
   id: string;
@@ -255,7 +255,7 @@ export default function UploadsHistoryPage() {
       {/* List */}
       <div className="rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden">
         {loading ? (
-          <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 text-brand-400 animate-spin" /></div>
+          <div className="p-12 flex justify-center"><RoyaLoader fullScreen={false} size="md" /></div>
         ) : visible.length === 0 ? (
           <div className="p-12 text-center text-gray-500 text-sm">لا توجد رفعات في هذا الفلتر</div>
         ) : (

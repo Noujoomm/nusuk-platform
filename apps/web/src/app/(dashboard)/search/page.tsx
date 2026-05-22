@@ -16,7 +16,6 @@ import {
   Target,
   AlertTriangle,
   BookOpen,
-  Loader2,
   SlidersHorizontal,
   X,
   ArrowLeft,
@@ -24,6 +23,7 @@ import {
   RefreshCw,
   Database,
 } from 'lucide-react';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 // ─── Types ─────────────────────────────────────────
 interface KeywordResult {
@@ -316,10 +316,7 @@ export default function SearchPage() {
         {/* Loading */}
         {loading && (
           <div className="glass rounded-2xl border border-white/10 p-12 text-center">
-            <Loader2 className="w-8 h-8 animate-spin text-brand-400 mx-auto mb-3" />
-            <p className="text-sm text-gray-400">
-              {mode === 'semantic' ? 'جاري البحث بالذكاء الاصطناعي...' : 'جاري البحث...'}
-            </p>
+            <RoyaLoader fullScreen={false} size="md" message={mode === 'semantic' ? 'جاري البحث بالذكاء الاصطناعي...' : 'جاري البحث...'} />
           </div>
         )}
 

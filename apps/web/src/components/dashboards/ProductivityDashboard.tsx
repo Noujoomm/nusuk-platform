@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, BarChart, Bar, Cell } from 'recharts';
 import type { ProjectProductivity, TrackProductivity } from '@/lib/types/productivity';
 import { chartTooltipStyle, chartTooltipLabelStyle, chartTooltipItemStyle, axisTickStyle, axisStroke, gridStroke, gridStrokeDash } from '@/lib/chart-theme';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 const REFRESH_INTERVAL = 15_000;
 const prodColor = (v: number) => v >= 85 ? '#22c55e' : v >= 60 ? '#f59e0b' : '#ef4444';
@@ -93,10 +94,7 @@ export default function ProductivityDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-400">جارٍ حساب الإنتاجية...</p>
-        </div>
+        <RoyaLoader fullScreen={false} size="md" message="جارٍ حساب الإنتاجية..." />
       </div>
     );
   }

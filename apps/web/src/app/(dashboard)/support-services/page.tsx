@@ -11,6 +11,7 @@ import { custodyFundsApi, custodyInvoiceApi, supportServicesApi, usersApi } from
 import { useAuth } from '@/stores/auth';
 import { cn, fixArabicMojibake, formatNumber } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 type MainTab = 'funds' | 'requests';
 
@@ -89,7 +90,7 @@ function FundsModule() {
     } catch (e: any) { toast.error(e?.response?.data?.message || 'فشل'); } finally { setSubmitting(false); }
   };
 
-  if (loading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+  if (loading) return <div className="flex justify-center py-16"><RoyaLoader fullScreen={false} size="md" /></div>;
   if (selected) return <FundDetail fund={selected} allUsers={allUsers} onBack={() => { setSelected(null); load(); }} onRefresh={() => openDetail(selected.id)} />;
 
   return (
@@ -545,7 +546,7 @@ function RequestsModule() {
     catch (e: any) { toast.error(e?.response?.data?.message || 'فشل'); } finally { setSubmitting(false); }
   };
 
-  if (loading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+  if (loading) return <div className="flex justify-center py-16"><RoyaLoader fullScreen={false} size="md" /></div>;
 
   return (
     <div className="space-y-4">

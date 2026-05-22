@@ -14,8 +14,9 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Loader2, Printer } from 'lucide-react';
+import { Printer } from 'lucide-react';
 import { intelligenceApi } from '@/lib/api';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 const SECTION_LABEL: Record<string, string> = {
   executive_summary: 'الملخص التنفيذي',
@@ -56,7 +57,7 @@ export default function IntelligencePrintPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

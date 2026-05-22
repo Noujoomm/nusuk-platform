@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { tracksApi } from '@/lib/api';
 import { useAuth } from '@/stores/auth';
 import { GitBranch, Plus, Trash2, Edit3, X } from 'lucide-react';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import toast from 'react-hot-toast';
 
 interface Track {
@@ -59,7 +60,7 @@ export default function TracksPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

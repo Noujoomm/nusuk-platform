@@ -5,6 +5,7 @@ import { filesApi, tracksApi } from '@/lib/api';
 import { formatDateTime } from '@/lib/utils';
 import { File, Search, Plus, CheckCircle, Clock, XCircle, Eye, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 // ─── Types ───
 
@@ -194,7 +195,7 @@ export default function FilesPage() {
   if (loading && files.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

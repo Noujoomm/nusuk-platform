@@ -11,7 +11,8 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Archive as ArchiveIcon, ArrowRight, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { Archive as ArchiveIcon, ArrowRight, Lock, AlertCircle } from 'lucide-react';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import { attendanceApi } from '@/lib/api';
 
 type RawStatus =
@@ -90,8 +91,7 @@ export default function AttendanceArchiveDetailPage() {
   if (loading) {
     return (
       <div dir="rtl" className="flex items-center justify-center py-16 text-gray-400 text-sm gap-2">
-        <Loader2 className="w-4 h-4 animate-spin" />
-        جارٍ التحميل...
+        <RoyaLoader fullScreen={false} size="sm" message="جارٍ التحميل..." />
       </div>
     );
   }

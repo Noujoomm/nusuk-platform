@@ -31,6 +31,7 @@ import { useDebounce } from '@/hooks/use-debounce';
 import TaskCard from '@/components/tasks/task-card';
 import TaskModal from '@/components/tasks/task-modal';
 import TaskDetailPanel from '@/components/tasks/task-detail-panel';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface Track {
   id: string;
@@ -380,7 +381,7 @@ export default function TasksPage() {
       {/* Task Cards Grid */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+          <RoyaLoader fullScreen={false} size="md" />
         </div>
       ) : tasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-20 text-gray-400">

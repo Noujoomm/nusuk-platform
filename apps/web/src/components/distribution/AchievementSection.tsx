@@ -5,6 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, L
 import { Plus, Trash2, Loader2, AlertTriangle, CheckCircle, TrendingUp, Target, X, Shield, Award, Sparkles, ScanSearch } from 'lucide-react';
 import Link from 'next/link';
 import DatePairInput from '@/components/ui/date-pair-input';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import toast from 'react-hot-toast';
 import { distAchievementApi } from '@/lib/api';
 import { useAuth } from '@/stores/auth';
@@ -106,7 +107,7 @@ export default function AchievementSection() {
     } finally { setSubmitting(false); }
   };
 
-  if (loading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+  if (loading) return <div className="flex justify-center py-16"><RoyaLoader fullScreen={false} size="md" /></div>;
   const entries = data?.entries || [];
   const s = data?.summary;
 

@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ArrowLeftRight,
 } from 'lucide-react';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 const NEXT_STATUS: Record<string, string> = {
   pending: 'in_progress',
@@ -74,7 +75,7 @@ export default function EmployeeDashboard() {
   if (loading && myTasks.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

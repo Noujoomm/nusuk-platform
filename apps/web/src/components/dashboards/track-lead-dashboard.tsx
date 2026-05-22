@@ -16,6 +16,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import Link from 'next/link';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface Track {
   id: string;
@@ -113,7 +114,7 @@ export default function TrackLeadDashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

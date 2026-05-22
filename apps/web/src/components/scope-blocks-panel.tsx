@@ -5,6 +5,7 @@ import { scopeBlocksApi } from '@/lib/api';
 import { cn, formatPercent, SCOPE_STATUS_LABELS, SCOPE_STATUS_COLORS } from '@/lib/utils';
 import { useAuth } from '@/stores/auth';
 import InlineEdit from '@/components/inline-edit';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import {
   ChevronDown,
   ChevronLeft,
@@ -455,7 +456,7 @@ export default function ScopeBlocksPanel({ trackId, trackColor }: ScopeBlocksPan
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="sm" />
       </div>
     );
   }

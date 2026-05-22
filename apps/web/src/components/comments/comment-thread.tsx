@@ -7,6 +7,7 @@ import { commentsApi } from '@/lib/api';
 import { useAuth } from '@/stores/auth';
 import CommentItem from './comment-item';
 import CommentForm from './comment-form';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface Props {
   entityType: string;
@@ -104,7 +105,7 @@ export default function CommentThread({ entityType, entityId }: Props) {
       {/* Comments list */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+          <RoyaLoader fullScreen={false} size="sm" />
         </div>
       ) : comments.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-12 text-gray-400">

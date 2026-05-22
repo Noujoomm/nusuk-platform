@@ -5,6 +5,7 @@ import { penaltiesApi, tracksApi } from '@/lib/api';
 import { formatDate, formatNumber } from '@/lib/utils';
 import { AlertTriangle, Search, Shield, CheckCircle, XCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface Track {
   id: string;
@@ -123,7 +124,7 @@ export default function PenaltiesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

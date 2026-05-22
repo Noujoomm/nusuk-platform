@@ -4,7 +4,8 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { authApi } from '@/lib/api';
-import { ShieldCheck, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { ShieldCheck, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import toast from 'react-hot-toast';
 
 function ResetPasswordForm() {
@@ -65,8 +66,7 @@ function ResetPasswordForm() {
   if (validating) {
     return (
       <div className="text-center py-8">
-        <Loader2 className="w-10 h-10 text-brand-400 animate-spin mx-auto mb-4" />
-        <p className="text-gray-400 text-sm">جاري التحقق من الرابط...</p>
+        <RoyaLoader fullScreen={false} size="md" message="جاري التحقق من الرابط..." />
       </div>
     );
   }
@@ -225,8 +225,7 @@ export default function ResetPasswordPage() {
         <Suspense
           fallback={
             <div className="text-center py-8">
-              <Loader2 className="w-10 h-10 text-brand-400 animate-spin mx-auto mb-4" />
-              <p className="text-gray-400 text-sm">جاري التحميل...</p>
+              <RoyaLoader fullScreen={false} size="md" />
             </div>
           }
         >

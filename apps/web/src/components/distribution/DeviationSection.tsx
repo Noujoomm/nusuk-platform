@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { Plus, Trash2, Loader2, AlertCircle, CheckCircle, ArrowLeftRight, X, Shield, Clock, FileCheck, Package, Bug } from 'lucide-react';
 import DatePairInput from '@/components/ui/date-pair-input';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import toast from 'react-hot-toast';
 import { distDeviationApi } from '@/lib/api';
 import { scrollToEdit } from '@/lib/scroll-to-edit';
@@ -90,7 +91,7 @@ export default function DeviationSection() {
     } finally { setSubmitting(false); }
   };
 
-  if (loading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-gray-400" /></div>;
+  if (loading) return <div className="flex justify-center py-16"><RoyaLoader fullScreen={false} size="md" /></div>;
   const entries = data?.entries || [];
   const s = data?.summary;
   const latest = entries[0];

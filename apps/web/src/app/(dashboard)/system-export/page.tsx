@@ -9,6 +9,7 @@ import {
 import { adminExportApi } from '@/lib/api';
 import { useAuth } from '@/stores/auth';
 import { cn, formatNumber } from '@/lib/utils';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface ModelStat {
   name: string;
@@ -132,7 +133,7 @@ export default function SystemExportPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }
@@ -272,7 +273,7 @@ export default function SystemExportPage() {
 
         {integrityLoading && !integrity ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-brand-400" />
+            <RoyaLoader fullScreen={false} size="md" />
           </div>
         ) : integrity ? (
           <>

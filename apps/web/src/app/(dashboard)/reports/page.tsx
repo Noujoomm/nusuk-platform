@@ -11,6 +11,7 @@ import {
 import toast from 'react-hot-toast';
 import { VoiceFillButton, VoiceFillResult } from '@/components/reports/voice-fill-button';
 import { TextEnhancerButton, type EnhancerFieldKey } from '@/components/reports/text-enhancer-button';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 // ─── Types ───
 
@@ -594,7 +595,7 @@ export default function ReportsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

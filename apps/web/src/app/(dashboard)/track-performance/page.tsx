@@ -7,11 +7,12 @@ import {
 } from 'recharts';
 import {
   Target, TrendingUp, Clock, AlertTriangle, CheckCircle, BarChart3,
-  Loader2, RefreshCw, Shield, Award,
+  RefreshCw, Shield, Award,
 } from 'lucide-react';
 import { analyticsApi } from '@/lib/api';
 import { useAuth } from '@/stores/auth';
 import { cn, formatNumber } from '@/lib/utils';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import { chartTooltipStyle, chartTooltipLabelStyle, chartTooltipItemStyle, axisTickStyle, axisStroke, gridStroke, gridStrokeDash, legendStyle } from '@/lib/chart-theme';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -62,7 +63,7 @@ export default function TrackPerformancePage() {
     return <div className="flex items-center justify-center py-20 text-gray-400"><Shield className="w-12 h-12" /></div>;
   }
   if (loading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-gray-400" /></div>;
+    return <div className="flex items-center justify-center h-64"><RoyaLoader fullScreen={false} size="md" /></div>;
   }
   if (!data) return null;
 
