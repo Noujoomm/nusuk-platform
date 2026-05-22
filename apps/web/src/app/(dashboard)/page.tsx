@@ -1,6 +1,7 @@
 'use client';
 
 import { useAuth } from '@/stores/auth';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import EmployeeDashboard from '@/components/dashboards/employee-dashboard';
 import TrackLeadDashboard from '@/components/dashboards/track-lead-dashboard';
 import HRDashboard from '@/components/dashboards/hr-dashboard';
@@ -12,7 +13,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

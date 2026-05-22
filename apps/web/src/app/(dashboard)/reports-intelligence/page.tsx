@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/stores/auth';
 import { intelligenceApi, tracksApi } from '@/lib/api';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 const OUTPUT_MODES = [
   { value: 'executive_summary', label: 'ملخص تنفيذي', desc: 'موجز 3–5 أقسام لصنّاع القرار' },
@@ -314,7 +315,7 @@ export default function ReportsIntelligencePage() {
   if (!user) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

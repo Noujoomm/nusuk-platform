@@ -3,11 +3,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   Shield, AlertTriangle, AlertCircle, CheckCircle, TrendingUp, TrendingDown,
-  Loader2, RefreshCw, Target, Zap, BarChart3, Clock, Brain, ChevronLeft,
+  RefreshCw, Target, Zap, BarChart3, Clock, Brain, ChevronLeft,
 } from 'lucide-react';
 import { aiEngineApi } from '@/lib/api';
 import { useAuth } from '@/stores/auth';
 import { cn, formatNumber } from '@/lib/utils';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 function ScoreRing({ value, size = 100, label }: { value: number; size?: number; label?: string }) {
   const r = (size - 7) / 2, c = 2 * Math.PI * r;
@@ -48,7 +49,7 @@ export default function CommandCenterPage() {
   if (!(user?.role === 'admin' || user?.role === 'pm')) {
     return <div className="flex items-center justify-center py-20 text-gray-400"><Shield className="w-12 h-12" /></div>;
   }
-  if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-violet-400" /></div>;
+  if (loading) return <div className="flex items-center justify-center h-64"><RoyaLoader fullScreen={false} size="md" /></div>;
   if (!data) return null;
 
   return (

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Bell, X } from 'lucide-react';
 import { useNotifications } from '@/stores/notifications';
 import { cn, formatDateTime } from '@/lib/utils';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface NotificationDropdownProps {
   onClose: () => void;
@@ -40,7 +41,7 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
       <div className="max-h-[400px] overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+            <RoyaLoader fullScreen={false} size="sm" />
           </div>
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 py-12 text-gray-400">

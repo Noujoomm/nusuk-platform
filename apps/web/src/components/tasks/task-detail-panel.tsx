@@ -17,6 +17,7 @@ import { tasksApi } from '@/lib/api';
 import { useAuth } from '@/stores/auth';
 import { Task } from '@/stores/tasks';
 import CommentThread from '@/components/comments/comment-thread';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface Props {
   task: Task;
@@ -595,7 +596,7 @@ export default function TaskDetailPanel({ task: initialTask, onClose, onUpdate }
               </div>
 
               {!notesLoaded ? (
-                <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-gray-500" /></div>
+                <div className="flex justify-center py-8"><RoyaLoader fullScreen={false} size="sm" /></div>
               ) : adminNotes.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <StickyNote className="w-8 h-8 mx-auto mb-2 opacity-50" />

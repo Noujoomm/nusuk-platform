@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, Download, Loader2, AlertCircle } from 'lucide-react';
+import { X, Download, AlertCircle } from 'lucide-react';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import toast from 'react-hot-toast';
 import { attendanceApi } from '@/lib/api';
 import { parseFilenameFromHeaders, triggerBrowserDownload } from '@/lib/download';
@@ -124,8 +125,7 @@ export function PreviewDialog({
         <div className="flex-1 bg-black/40 overflow-hidden">
           {isLoading && (
             <div className="flex items-center justify-center h-full gap-3 text-gray-400">
-              <Loader2 className="w-7 h-7 animate-spin text-brand-400" />
-              <span className="text-sm">جارٍ تحضير المعاينة…</span>
+              <RoyaLoader fullScreen={false} size="sm" message="جارٍ تحضير المعاينة…" />
             </div>
           )}
 

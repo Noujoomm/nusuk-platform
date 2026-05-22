@@ -18,6 +18,7 @@ import {
   Layers,
 } from 'lucide-react';
 import CrudModal, { FieldDef } from '@/components/crud-modal';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 type Tab = 'global' | 'tracks' | 'employees' | 'entities';
 
@@ -136,7 +137,7 @@ export default function AchievementsProgressPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

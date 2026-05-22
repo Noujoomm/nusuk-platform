@@ -20,6 +20,7 @@ import {
   PieChart,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 // ─── Types ───
 
@@ -217,7 +218,7 @@ export default function AIReportsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

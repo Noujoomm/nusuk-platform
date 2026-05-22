@@ -27,6 +27,7 @@ import {
 import { useAuth } from '@/stores/auth';
 import CrudModal, { FieldDef } from '@/components/crud-modal';
 import ConfirmDialog from '@/components/confirm-dialog';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface Track {
   id: string;
@@ -263,7 +264,7 @@ export default function EmployeesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        <RoyaLoader fullScreen={false} size="md" />
       </div>
     );
   }

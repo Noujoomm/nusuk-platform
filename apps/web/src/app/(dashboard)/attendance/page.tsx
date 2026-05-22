@@ -37,6 +37,7 @@ import { attendanceApi } from '@/lib/api';
 import { parseFilenameFromHeaders, triggerBrowserDownload } from '@/lib/download';
 import { PreviewDialog } from '@/components/attendance/preview-dialog';
 import { UnmatchedDialog } from '@/components/attendance/unmatched-dialog';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface SeedResult {
   totalRowsRead: number;
@@ -603,7 +604,7 @@ export default function AttendancePage() {
       {/* ─── Daily Report Table ─── */}
       {reportLoading && (
         <div className="rounded-2xl bg-white/[0.03] border border-white/10 p-12 flex justify-center">
-          <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
+          <RoyaLoader fullScreen={false} size="md" />
         </div>
       )}
 
@@ -1023,8 +1024,7 @@ function DropZone({
       />
       {isUploading ? (
         <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-10 h-10 text-brand-400 animate-spin" />
-          <p className="text-sm text-gray-300">جارٍ المعالجة…</p>
+          <RoyaLoader fullScreen={false} size="md" message="جارٍ المعالجة…" />
         </div>
       ) : (
         <div className="flex flex-col items-center gap-3">

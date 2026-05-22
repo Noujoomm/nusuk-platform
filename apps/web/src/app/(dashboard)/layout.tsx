@@ -12,6 +12,7 @@ import { PageTransition } from '@/components/motion/PageTransition';
 import GlobalSearch from '@/components/global-search';
 import BottomDock from '@/components/ui/bottom-dock';
 import ThemeToggle from '@/components/theme-toggle';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -58,10 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-gray-400 text-sm">جاري التحميل...</span>
-        </div>
+        <RoyaLoader fullScreen={false} size="md" message="جاري التحميل..." />
       </div>
     );
   }

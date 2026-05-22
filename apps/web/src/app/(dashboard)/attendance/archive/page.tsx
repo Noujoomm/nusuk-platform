@@ -12,7 +12,8 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Archive as ArchiveIcon, Eye, Loader2, AlertCircle } from 'lucide-react';
+import { Archive as ArchiveIcon, Eye, AlertCircle } from 'lucide-react';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import toast from 'react-hot-toast';
 import { attendanceApi } from '@/lib/api';
 
@@ -112,8 +113,7 @@ export default function AttendanceArchiveListPage() {
       <div className="rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-16 text-gray-400 text-sm gap-2">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            جارٍ التحميل...
+            <RoyaLoader fullScreen={false} size="sm" message="جارٍ التحميل..." />
           </div>
         ) : error ? (
           <div className="flex items-center justify-center py-16 text-rose-300 text-sm gap-2">

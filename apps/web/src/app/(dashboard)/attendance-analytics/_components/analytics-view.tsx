@@ -8,7 +8,6 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  Loader2,
   ShieldCheck,
   TrendingDown,
   TrendingUp,
@@ -29,6 +28,7 @@ import { attendanceApi } from '@/lib/api';
 import { PeriodSelector, defaultThisMonth, type DateRange } from '@/components/attendance/period-selector';
 import { StatusCellEditor, type ManualStatus } from '@/components/attendance/status-cell-editor';
 import { useAuth } from '@/stores/auth';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 type Severity = 'high' | 'medium' | 'low';
 
@@ -265,7 +265,7 @@ export function AnalyticsView({
 
       {loading && (
         <div className="flex items-center justify-center py-16 text-slate-400">
-          <Loader2 className="ml-2 h-5 w-5 animate-spin" /> جارٍ التحميل…
+          <RoyaLoader fullScreen={false} size="md" message="جارٍ التحميل…" />
         </div>
       )}
 

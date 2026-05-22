@@ -13,6 +13,7 @@ import {
   FileType, Archive, Loader2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 // ─── Audit Labels & Config ───
 
@@ -262,7 +263,7 @@ function DailyUpdatesTab({ isAdmin, userId }: { isAdmin: boolean; userId: string
       {/* Updates Feed */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+          <RoyaLoader fullScreen={false} size="md" />
         </div>
       ) : updates.length === 0 ? (
         <div className="glass p-12 text-center">
@@ -747,7 +748,7 @@ function ActivityLogTab() {
       {/* Activity Feed */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+          <RoyaLoader fullScreen={false} size="md" />
         </div>
       ) : entries.length === 0 ? (
         <div className="glass p-12 text-center">

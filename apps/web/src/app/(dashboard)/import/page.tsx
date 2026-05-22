@@ -18,6 +18,7 @@ import {
   X,
   ChevronDown,
 } from 'lucide-react';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface SheetInfo {
   name: string;
@@ -307,8 +308,7 @@ export default function ImportPage() {
               />
               {uploading ? (
                 <div className="flex flex-col items-center gap-3">
-                  <div className="w-10 h-10 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-                  <p className="text-gray-300">جاري رفع الملف...</p>
+                  <RoyaLoader fullScreen={false} size="md" message="جاري رفع الملف..." />
                 </div>
               ) : (
                 <>
@@ -567,7 +567,7 @@ export default function ImportPage() {
         <div className="glass rounded-2xl overflow-hidden">
           {historyLoading ? (
             <div className="flex items-center justify-center h-32">
-              <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+              <RoyaLoader fullScreen={false} size="md" />
             </div>
           ) : history.length === 0 ? (
             <div className="p-12 text-center">

@@ -10,9 +10,9 @@ import {
   GitBranch,
   Users,
   FolderOpen,
-  Loader2,
   X,
 } from 'lucide-react';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface Props {
   isOpen: boolean;
@@ -178,7 +178,7 @@ export default function GlobalSearch({ isOpen, onClose }: Props) {
           {/* Loading State */}
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-brand-400" />
+              <RoyaLoader fullScreen={false} size="sm" />
             </div>
           )}
 

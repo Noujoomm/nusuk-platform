@@ -26,6 +26,7 @@ import { executiveTasksApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/use-debounce';
 import ExecutiveTaskModal from '@/components/executive-tasks/executive-task-modal';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface ExecutiveTask {
   id: string;
@@ -294,7 +295,7 @@ export default function ExecutiveTasksPage() {
       <div className="glass rounded-2xl border border-white/10 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
+            <RoyaLoader fullScreen={false} size="md" />
           </div>
         ) : tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-500">

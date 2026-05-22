@@ -7,6 +7,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import { aiEngineApi } from '@/lib/api';
+import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import { useAuth } from '@/stores/auth';
 import { cn, formatNumber } from '@/lib/utils';
 
@@ -79,7 +80,7 @@ export default function AiInsightsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-center"><div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" /><p className="text-sm text-gray-400">جارٍ تحليل البيانات...</p></div>
+        <RoyaLoader fullScreen={false} size="md" message="جارٍ تحليل البيانات..." />
       </div>
     );
   }
