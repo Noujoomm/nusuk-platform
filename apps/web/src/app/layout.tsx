@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
+import { LoadingProvider } from '@/components/providers/LoadingProvider';
+import { AppBootLoader } from '@/components/providers/AppBootLoader';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -14,7 +16,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: `try{document.documentElement.setAttribute('data-theme',localStorage.getItem('roya-theme')||'dark')}catch(e){}` }} />
       </head>
       <body>
-        {children}
+        <LoadingProvider>
+          <AppBootLoader>{children}</AppBootLoader>
+        </LoadingProvider>
         <Toaster
           position="top-center"
           toastOptions={{
