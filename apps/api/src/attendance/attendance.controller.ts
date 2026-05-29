@@ -12,10 +12,12 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  UploadedFiles,
   BadRequestException,
+  ConflictException,
   Logger,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { extname } from 'path';
 import type { Request, Response } from 'express';
@@ -35,6 +37,8 @@ import { AttendanceAnalyticsService, AnalyticsScope, Center } from './services/a
 import { AttendanceOverrideService } from './services/attendance-override.service';
 import { AttendanceManualStatus } from '@prisma/client';
 import { BulkAbsenceDto, GetEmployeesByTrackBookletDto } from './dto/absence.dto';
+import { BatchUploadResultItem } from './dto/batch-upload.dto';
+import { NoDateError } from './errors/no-date.error';
 import { fixMulterFilename } from '../common/fix-filename';
 import { setFileResponseHeaders } from '../common/utils/file-response.util';
 
@@ -327,6 +331,93 @@ export class AttendanceController {
     }
     this.logger.log(`Seed by user=${user.id} file="${file.originalname}" size=${file.size}B`);
     return this.seeder.seedFromBuffer(file.buffer);
+  }
+
+  @Post('uploads/batch')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'system_manager')
+  @UseInterceptors(
+    // maxCount intentionally higher than the real limit (12) so that Multer
+    // accepts the 13th file and the handler returns our exact Arabic message
+    // instead of Multer's generic English error.
+    FilesInterceptor('files', 100, {
+      storage: memoryStorage(),
+      limits: { fileSize: PDF_MAX_BYTES },
+      fileFilter: (_req, file, cb) => {
+        const ext = extname(file.originalname).toLowerCase();
+        cb(null, PDF_MIME.has(file.mimetype) || ext === '.pdf');
+      },
+    }),
+  )
+  async uploadBatch(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body('centerOverride') centerOverrideRaw: string | undefined,
+    @Body('dates') datesJson: string | undefined,
+    @CurrentUser() user: { id: string },
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('لم يتم اختيار أي ملف');
+    }
+    if (files.length > 12) {
+      throw new BadRequestException('الحد الأقصى المسموح به هو 12 ملف');
+    }
+    const centerOverride: 'makkah' | 'madinah' | null =
+      centerOverrideRaw === 'makkah' || centerOverrideRaw === 'madinah'
+        ? centerOverrideRaw
+        : null;
+    let dates: Record<string, string> = {};
+    if (datesJson) {
+      try {
+        dates = JSON.parse(datesJson) ?? {};
+      } catch {
+        dates = {};
+      }
+    }
+
+    const results: BatchUploadResultItem[] = [];
+    for (const file of files) {
+      const manualDateStr = dates[file.originalname];
+      const manualDate = manualDateStr ? new Date(manualDateStr) : null;
+      const usableManual = manualDate && !isNaN(manualDate.getTime()) ? manualDate : null;
+      try {
+        const r = await this.uploads.ingest(
+          file.originalname,
+          file.size,
+          file.buffer,
+          user.id,
+          centerOverride,
+          usableManual,
+        );
+        results.push({
+          fileName: file.originalname,
+          success: true,
+          uploadId: r.uploadId,
+          reportDate: r.reportDate,
+          coversCenter: r.coversCenter as BatchUploadResultItem['coversCenter'],
+          totalRecords: r.totalRecords,
+          matchedCount: r.matchedCount,
+          unmatchedCount: r.unmatchedCount,
+        });
+      } catch (e: any) {
+        let errorCode: BatchUploadResultItem['errorCode'] = 'other';
+        if (e instanceof ConflictException) errorCode = 'duplicate';
+        else if (e instanceof NoDateError || e?.name === 'NoDateError') errorCode = 'no_date';
+        else if (e?.message?.includes('PDF') || e?.message?.includes('استخراج')) errorCode = 'parse_failed';
+        results.push({
+          fileName: file.originalname,
+          success: false,
+          error: e?.message ?? 'فشل غير متوقع',
+          errorCode,
+        });
+      }
+    }
+    const succeeded = results.filter((r) => r.success).length;
+    return {
+      totalFiles: files.length,
+      succeeded,
+      failed: files.length - succeeded,
+      results,
+    };
   }
 
   @Post('uploads')

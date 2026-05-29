@@ -8,6 +8,7 @@ import { analyzeDay } from '../utils/analyzer';
 import { Prisma, PdfShiftType, PdfAttendanceCenter } from '@prisma/client';
 import { fixStoredFilename } from '../../common/fix-filename';
 import { PdfVisionParserService } from './pdf-vision-parser.service';
+import { NoDateError } from '../errors/no-date.error';
 
 @Injectable()
 export class PdfUploadService {
@@ -38,6 +39,13 @@ export class PdfUploadService {
      * back to inferCoversCenter() against the matched employees.
      */
     centerOverride: PdfAttendanceCenter | null = null,
+    /**
+     * Caller-supplied fallback date for when the PDF header contains no
+     * parseable date. If the PDF does yield a date, the PDF date always
+     * wins (safer default). If neither is available, NoDateError is thrown
+     * so the batch endpoint can surface it as a per-file error.
+     */
+    reportDateOverride: Date | null = null,
   ) {
     // ─── 1. Parse PDF ─────────────────────────────────────────────────
     // Strategy: Vision API أولاً (أدق مع العربي)، pdf-parse كـ fallback لو
@@ -97,7 +105,14 @@ export class PdfUploadService {
     }
 
     if (!reportDate) {
-      throw new BadRequestException('لم يتم العثور على تاريخ التقرير في رأس الملف');
+      if (reportDateOverride) {
+        // Caller supplied a manual date as a fallback; use it.
+        reportDate = reportDateOverride;
+      } else {
+        // Neither the PDF nor the caller supplied a date — signal the batch
+        // endpoint so it can flag this file without aborting the whole batch.
+        throw new NoDateError();
+      }
     }
     if (parsed.length === 0) {
       throw new BadRequestException('لم يتم استخراج أي سجلات بصمة من الملف');
@@ -330,6 +345,7 @@ export class PdfUploadService {
     return {
       uploadId: upload.id,
       reportDate: reportDate.toISOString().slice(0, 10),
+      coversCenter,
       totalRecords: parsed.length,
       matchedCount,
       unmatchedCount,
