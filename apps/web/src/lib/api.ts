@@ -798,10 +798,11 @@ export const attendanceApi = {
     form.append('file', file);
     return api.post('/attendance/employees/seed', form, { timeout: 120000 });
   },
-  uploadPdf: (file: File, centerOverride?: 'makkah' | 'madinah') => {
+  uploadPdf: (file: File, centerOverride?: 'makkah' | 'madinah', manualDate?: string) => {
     const form = new FormData();
     form.append('file', file);
     if (centerOverride) form.append('centerOverride', centerOverride);
+    if (manualDate) form.append('manualDate', manualDate);
     return api.post('/attendance/uploads', form, { timeout: 120000 });
   },
   uploadPdfBatch: (
