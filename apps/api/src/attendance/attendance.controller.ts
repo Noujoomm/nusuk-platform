@@ -436,6 +436,7 @@ export class AttendanceController {
   async uploadDailyPdf(
     @UploadedFile() file: Express.Multer.File,
     @Body('centerOverride') centerOverride: string | undefined,
+    @Body('manualDate') manualDateRaw: string | undefined,
     @CurrentUser() user: { id: string },
   ) {
     if (!file) {
@@ -444,10 +445,14 @@ export class AttendanceController {
     fixMulterFilename(file);
     const override =
       centerOverride === 'makkah' || centerOverride === 'madinah' ? centerOverride : null;
+    // تاريخ يدوي اختياري كـ fallback لمّا فشلت قراءة التاريخ من الـ PDF.
+    const manualDateParsed = manualDateRaw ? new Date(manualDateRaw) : null;
+    const manualDate =
+      manualDateParsed && !isNaN(manualDateParsed.getTime()) ? manualDateParsed : null;
     this.logger.log(
-      `PDF upload by user=${user.id} file="${file.originalname}" size=${file.size}B center=${override ?? 'auto'}`,
+      `PDF upload by user=${user.id} file="${file.originalname}" size=${file.size}B center=${override ?? 'auto'}${manualDate ? ` manualDate=${manualDateRaw}` : ''}`,
     );
-    return this.uploads.ingest(file.originalname, file.size, file.buffer, user.id, override);
+    return this.uploads.ingest(file.originalname, file.size, file.buffer, user.id, override, manualDate);
   }
 
   @Get('uploads')

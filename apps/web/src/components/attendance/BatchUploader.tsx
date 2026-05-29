@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Upload, Trash2, CheckCircle, AlertCircle, CalendarDays, RefreshCw, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { attendanceApi, BatchUploadResponse } from '@/lib/api';
+import { attendanceApi } from '@/lib/api';
 
 const MAX_FILES = 12;
 type Status = 'queued' | 'uploading' | 'success' | 'duplicate' | 'needs_date' | 'failed';
@@ -61,68 +61,73 @@ export function BatchUploader({ onComplete }: Props) {
   const updateDate = (id: string, date: string) =>
     setFiles((prev) => prev.map((e) => (e.id === id ? { ...e, manualDate: date } : e)));
 
+  // معالجة الملفات واحداً تلو الآخر عبر الـ endpoint الفردي.
+  // يتجنّب timeout الكلّي الذي تسبّب فيه دفعة واحدة طويلة (PR #32)،
+  // ويُحدّث حالة كل ملف فور انتهائه بدل انتظار اكتمال الجميع.
   const runBatch = useCallback(
     async (entries: FileEntry[]) => {
       const targetIds = new Set(entries.map((e) => e.id));
       setFiles((prev) =>
         prev.map((e) =>
-          targetIds.has(e.id) ? { ...e, status: 'uploading' as Status, error: undefined } : e,
+          targetIds.has(e.id) ? { ...e, status: 'queued' as Status, error: undefined } : e,
         ),
       );
 
-      const dates: Record<string, string> = {};
-      for (const e of entries) {
-        if (e.manualDate) dates[e.file.name] = e.manualDate;
-      }
+      const centerOverride = center === 'auto' ? undefined : center;
+      let succeeded = 0;
+      let failed = 0;
 
-      try {
-        const centerOverride = center === 'auto' ? undefined : center;
-        const { data } = await attendanceApi.uploadPdfBatch(
-          entries.map((e) => e.file),
-          centerOverride,
-          dates,
-        );
-        const byName = new Map(data.results.map((r) => [r.fileName, r]));
-        setFiles((prev) =>
-          prev.map((e) => {
-            if (!targetIds.has(e.id)) return e;
-            const r = byName.get(e.file.name);
-            if (!r) return { ...e, status: 'failed' as Status, error: 'لم يُعثر على نتيجة' };
-            if (r.success) {
-              return {
-                ...e,
-                status: 'success' as Status,
-                result: {
-                  reportDate: r.reportDate,
-                  coversCenter: r.coversCenter,
-                  totalRecords: r.totalRecords,
-                  matchedCount: r.matchedCount,
-                  unmatchedCount: r.unmatchedCount,
-                },
-              };
-            }
-            const status: Status =
-              r.errorCode === 'duplicate'
-                ? 'duplicate'
-                : r.errorCode === 'no_date'
-                  ? 'needs_date'
-                  : 'failed';
-            return { ...e, status, error: r.error };
-          }),
-        );
-        const goodMsg = data.succeeded > 0 ? `${data.succeeded} ناجح` : '';
-        const badMsg = data.failed > 0 ? `${data.failed} فشل` : '';
-        toast.success(`اكتمل: ${[goodMsg, badMsg].filter(Boolean).join(' · ')}`);
-        onComplete?.();
-      } catch (err: any) {
-        const msg = err?.response?.data?.message ?? err?.message ?? 'فشل رفع الدفعة';
-        toast.error(msg);
+      for (const entry of entries) {
         setFiles((prev) =>
           prev.map((e) =>
-            targetIds.has(e.id) ? { ...e, status: 'failed' as Status, error: msg } : e,
+            e.id === entry.id ? { ...e, status: 'uploading' as Status, error: undefined } : e,
           ),
         );
+
+        try {
+          const { data } = await attendanceApi.uploadPdf(entry.file, centerOverride, entry.manualDate);
+          // الـ endpoint الفردي يُعيد سجل الـ upload — استخرج ما يهم العرض.
+          succeeded += 1;
+          setFiles((prev) =>
+            prev.map((e) =>
+              e.id === entry.id
+                ? {
+                    ...e,
+                    status: 'success' as Status,
+                    result: {
+                      reportDate: typeof data?.reportDate === 'string'
+                        ? data.reportDate
+                        : data?.reportDate
+                          ? new Date(data.reportDate).toISOString().slice(0, 10)
+                          : undefined,
+                      coversCenter: data?.coversCenter ?? null,
+                      totalRecords: data?.totalRecords,
+                      matchedCount: data?.matchedCount,
+                      unmatchedCount: data?.unmatchedCount,
+                    },
+                  }
+                : e,
+            ),
+          );
+        } catch (err: any) {
+          failed += 1;
+          const status = mapErrorToStatus(err);
+          const message =
+            err?.response?.data?.message ??
+            err?.message ??
+            'فشل رفع الملف';
+          setFiles((prev) =>
+            prev.map((e) => (e.id === entry.id ? { ...e, status, error: message } : e)),
+          );
+        }
       }
+
+      const parts = [
+        succeeded > 0 ? `${succeeded} ناجح` : '',
+        failed > 0 ? `${failed} فشل` : '',
+      ].filter(Boolean);
+      if (parts.length > 0) toast.success(`اكتمل: ${parts.join(' · ')}`);
+      onComplete?.();
     },
     [center, onComplete],
   );
@@ -353,6 +358,20 @@ function FileRow({
       )}
     </div>
   );
+}
+
+/**
+ * يحوّل خطأ axios من الـ endpoint الفردي إلى حالة الصفّ المناسبة.
+ *  - 409 → 'duplicate' (سجل بنفس التاريخ والمدينة موجود مسبقاً).
+ *  - 400 مع errorCode === 'no_date' → 'needs_date' (يحتاج تاريخاً يدوياً).
+ *  - باقي الحالات → 'failed'.
+ */
+function mapErrorToStatus(err: any): Status {
+  const status = err?.response?.status;
+  const errorCode = err?.response?.data?.errorCode;
+  if (status === 409) return 'duplicate';
+  if (errorCode === 'no_date') return 'needs_date';
+  return 'failed';
 }
 
 function StatusBadge({ status }: { status: Status }) {
