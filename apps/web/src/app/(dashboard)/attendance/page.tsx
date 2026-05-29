@@ -38,6 +38,7 @@ import { parseFilenameFromHeaders, triggerBrowserDownload } from '@/lib/download
 import { PreviewDialog } from '@/components/attendance/preview-dialog';
 import { UnmatchedDialog } from '@/components/attendance/unmatched-dialog';
 import { RoyaLoader } from '@/components/ui/RoyaLoader';
+import { BatchUploader } from '@/components/attendance/BatchUploader';
 
 interface SeedResult {
   totalRowsRead: number;
@@ -45,15 +46,6 @@ interface SeedResult {
   updated: number;
   skipped: number;
   errors: Array<{ sheet: string; row: number; reason: string }>;
-}
-
-interface UploadResult {
-  uploadId: string;
-  reportDate: string;
-  totalRecords: number;
-  matchedCount: number;
-  unmatchedCount: number;
-  employeesAnalyzed: number;
 }
 
 type AttendanceStatus =
@@ -167,12 +159,6 @@ export default function AttendancePage() {
   const [seedDragging, setSeedDragging] = useState(false);
   const [seedResult, setSeedResult] = useState<SeedResult | null>(null);
 
-  const [pdfUploading, setPdfUploading] = useState(false);
-  const [pdfDraggingMakkah, setPdfDraggingMakkah] = useState(false);
-  const [pdfDraggingMadinah, setPdfDraggingMadinah] = useState(false);
-  const [pdfDraggingAuto, setPdfDraggingAuto] = useState(false);
-  const [pdfResult, setPdfResult] = useState<UploadResult | null>(null);
-
   const [report, setReport] = useState<DailyReport | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reanalyzing, setReanalyzing] = useState(false);
@@ -233,36 +219,6 @@ export default function AttendancePage() {
       setReportLoading(false);
     }
   }, []);
-
-  const handlePdfFile = useCallback(async (file: File, centerOverride?: 'makkah' | 'madinah') => {
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      toast.error('يجب أن يكون الملف بصيغة PDF');
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('حجم الملف يتجاوز 10 ميجابايت');
-      return;
-    }
-    setPdfUploading(true);
-    setPdfResult(null);
-    setReport(null);
-    const cityLabel = centerOverride === 'makkah' ? 'مكة' : centerOverride === 'madinah' ? 'المدينة' : 'تلقائي';
-    const tid = toast.loading(`جاري قراءة وتحليل الملف (${cityLabel})…`);
-    try {
-      const { data } = await attendanceApi.uploadPdf(file, centerOverride);
-      setPdfResult(data);
-      toast.success(
-        `تم تحليل ${data.totalRecords} سجل (${data.matchedCount} مطابق، ${data.unmatchedCount} غير مطابق)`,
-        { id: tid },
-      );
-      await loadReport(data.uploadId);
-    } catch (err: any) {
-      const msg = err?.response?.data?.message || 'فشل معالجة ملف PDF';
-      toast.error(typeof msg === 'string' ? msg : 'فشل معالجة ملف PDF', { id: tid });
-    } finally {
-      setPdfUploading(false);
-    }
-  }, [loadReport]);
 
   const handleReanalyze = useCallback(async () => {
     if (!report?.upload.id) return;
@@ -494,90 +450,8 @@ export default function AttendancePage() {
         )}
       </div>
 
-      {/* ─── PDF Upload ─── */}
-      <div className="rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 p-6">
-        <div className="flex items-start gap-3 mb-4">
-          <div className="rounded-xl bg-blue-500/20 p-2.5">
-            <FileSpreadsheet className="w-5 h-5 text-blue-300" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">تقرير PDF اليومي للحضور</h2>
-            <p className="text-sm text-gray-400 mt-0.5">
-              ارفع كل مدينة في مكانها — هذا يضمن أن موظفي المدينة الأخرى لا يُسجَّلون "غائبين"
-              بالخطأ في يوم خصصته لمدينة واحدة. الخيار التلقائي يستنتج المدينة من أسماء الموظفين
-              في الملف.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Makkah */}
-          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.03] p-3">
-            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-emerald-300">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-emerald-500/15 text-[11px]">🕋</span>
-              <span>حضور مكة المكرمة</span>
-            </div>
-            <DropZone
-              accept=".pdf"
-              isDragging={pdfDraggingMakkah}
-              isUploading={pdfUploading}
-              setDragging={setPdfDraggingMakkah}
-              onFile={(f) => handlePdfFile(f, 'makkah')}
-              hint=".pdf — يُسجَّل تحت تصنيف مكة"
-              inputId="pdf-file-makkah"
-            />
-          </div>
-
-          {/* Madinah */}
-          <div className="rounded-xl border border-blue-500/20 bg-blue-500/[0.03] p-3">
-            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-blue-300">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-blue-500/15 text-[11px]">🕌</span>
-              <span>حضور المدينة المنورة</span>
-            </div>
-            <DropZone
-              accept=".pdf"
-              isDragging={pdfDraggingMadinah}
-              isUploading={pdfUploading}
-              setDragging={setPdfDraggingMadinah}
-              onFile={(f) => handlePdfFile(f, 'madinah')}
-              hint=".pdf — يُسجَّل تحت تصنيف المدينة"
-              inputId="pdf-file-madinah"
-            />
-          </div>
-        </div>
-
-        <details className="mt-3 group">
-          <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-200">
-            رفع تلقائي (لا تعرف المدينة؟ النظام يستنتجها من الأسماء)
-          </summary>
-          <div className="mt-2">
-            <DropZone
-              accept=".pdf"
-              isDragging={pdfDraggingAuto}
-              isUploading={pdfUploading}
-              setDragging={setPdfDraggingAuto}
-              onFile={(f) => handlePdfFile(f)}
-              hint=".pdf — يُستنتج التصنيف من المدينة الغالبة للموظفين"
-              inputId="pdf-file-auto"
-            />
-          </div>
-        </details>
-
-        {pdfResult && (
-          <div className="mt-5 rounded-xl bg-white/[0.04] border border-white/10 p-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-emerald-300 mb-3">
-              <CheckCircle className="w-4 h-4" />
-              تم تحليل التقرير ليوم {pdfResult.reportDate}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-              <Stat label="السجلات" value={pdfResult.totalRecords} />
-              <Stat label="مطابقة" value={pdfResult.matchedCount} accent="emerald" />
-              <Stat label="غير مطابقة" value={pdfResult.unmatchedCount} accent={pdfResult.unmatchedCount > 0 ? 'amber' : undefined} />
-              <Stat label="موظفون" value={pdfResult.employeesAnalyzed} accent="blue" />
-            </div>
-          </div>
-        )}
-      </div>
+      {/* ─── PDF Batch Upload ─── */}
+      <BatchUploader />
 
       {/* ─── Stats Cards (Regular | On Call) ─── */}
       {report && !reportLoading && (

@@ -771,6 +771,26 @@ export const adminExportApi = {
   downloadZip: () => api.get('/admin/export-zip', { responseType: 'blob', timeout: 300000 }),
 };
 
+// ─── Attendance Batch Upload Types ───
+export interface BatchUploadResultItem {
+  fileName: string;
+  success: boolean;
+  uploadId?: string;
+  reportDate?: string;
+  coversCenter?: 'makkah' | 'madinah' | 'shared' | null;
+  totalRecords?: number;
+  matchedCount?: number;
+  unmatchedCount?: number;
+  error?: string;
+  errorCode?: 'duplicate' | 'no_date' | 'parse_failed' | 'other';
+}
+export interface BatchUploadResponse {
+  totalFiles: number;
+  succeeded: number;
+  failed: number;
+  results: BatchUploadResultItem[];
+}
+
 // ─── Attendance (PDF flow) ───
 export const attendanceApi = {
   seedEmployees: (file: File) => {
@@ -783,6 +803,20 @@ export const attendanceApi = {
     form.append('file', file);
     if (centerOverride) form.append('centerOverride', centerOverride);
     return api.post('/attendance/uploads', form, { timeout: 120000 });
+  },
+  uploadPdfBatch: (
+    files: File[],
+    centerOverride?: 'makkah' | 'madinah',
+    dates?: Record<string, string>,
+  ) => {
+    const fd = new FormData();
+    for (const f of files) fd.append('files', f, f.name);
+    if (centerOverride) fd.append('centerOverride', centerOverride);
+    if (dates && Object.keys(dates).length > 0) fd.append('dates', JSON.stringify(dates));
+    return api.post<BatchUploadResponse>('/attendance/uploads/batch', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000,
+    });
   },
   listUploads: () => api.get('/attendance/uploads'),
   getReport: (uploadId: string) => api.get(`/attendance/uploads/${uploadId}/report`),
