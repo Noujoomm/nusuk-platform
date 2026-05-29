@@ -2252,6 +2252,7 @@ model PdfAttendanceUpload {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([reportDate])
+  @@index([reportDate, coversCenter])
   @@map("pdf_attendance_uploads")
 }
 
@@ -2366,6 +2367,7 @@ model PdfDailyAttendanceSummary {
 
   @@unique([uploadId, employeeId])
   @@index([reportDate])
+  @@index([reportDate, employeeId])
   @@map("pdf_daily_attendance_summaries")
 }
 
