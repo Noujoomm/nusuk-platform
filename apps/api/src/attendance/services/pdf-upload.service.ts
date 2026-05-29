@@ -146,8 +146,21 @@ export class PdfUploadService {
     const fileChecksum = createHash('sha256').update(buffer).digest('hex');
 
     // ─── 2. Match against master list ──────────────────────────────────
+    // عند توفر تحديد المدينة، استبعد موظفي المدينة المعاكسة من برك المرشحين
+    // لمنع المطابقة الضبابية عبر-المدن، وتقليل حجم حلقة المطابقة.
     const employees = await this.prisma.pdfAttendanceEmployee.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        ...(centerOverride
+          ? {
+              OR: [
+                { center: centerOverride },
+                { center: 'shared' },
+                { center: null },
+              ],
+            }
+          : {}),
+      },
       select: {
         id: true,
         fullName: true,
@@ -726,6 +739,7 @@ export class PdfUploadService {
     });
     if (!upload) throw new NotFoundException('الرفعة غير موجودة');
 
+    // TODO: scope candidates by city if a target center becomes available in this code path.
     const employees = await this.prisma.pdfAttendanceEmployee.findMany({
       where: { isActive: true },
       select: { id: true, shiftType: true, center: true },

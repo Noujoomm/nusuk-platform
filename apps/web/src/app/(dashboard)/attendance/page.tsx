@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Fingerprint,
   Shield,
@@ -190,6 +190,8 @@ export default function AttendancePage() {
   const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [archiveNotes, setArchiveNotes] = useState('');
   const [archivingNow, setArchivingNow] = useState(false);
+
+  const [cityTab, setCityTab] = useState<'all' | 'makkah' | 'madinah'>('all');
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -408,7 +410,15 @@ export default function AttendancePage() {
     return acc;
   }, {} as Record<string, number>);
 
-  const filtered = summaries.filter(TAB_FILTERS.find((t) => t.key === filter)?.match ?? (() => true));
+  // CHANGE 1: memoized filtered list (status tab + city tab combined)
+  const filtered = useMemo(() => {
+    const statusMatch = TAB_FILTERS.find((t) => t.key === filter)?.match ?? (() => true);
+    return summaries.filter((s) => {
+      if (!statusMatch(s)) return false;
+      if (cityTab === 'all') return true;
+      return s.employee.center === cityTab;
+    });
+  }, [summaries, filter, cityTab]);
 
   return (
     <div className="space-y-6">
@@ -616,6 +626,24 @@ export default function AttendancePage() {
               <h3 className="font-semibold">تقرير {report.upload.reportDate}</h3>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              {/* CHANGE 2: city tab strip */}
+              {[
+                { key: 'all'     as const, label: 'الكل',       activeCls: 'bg-brand-500/20 text-brand-200 border-brand-400/40' },
+                { key: 'makkah'  as const, label: '🕋 مكة',     activeCls: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40' },
+                { key: 'madinah' as const, label: '🕌 المدينة', activeCls: 'bg-blue-500/20 text-blue-200 border-blue-400/40' },
+              ].map((c) => {
+                const active = cityTab === c.key;
+                return (
+                  <button
+                    key={c.key}
+                    onClick={() => setCityTab(c.key)}
+                    className={`text-xs px-3 py-1.5 rounded-lg transition-colors border ${active ? c.activeCls : 'bg-white/5 text-gray-400 border-transparent hover:bg-white/10'}`}
+                  >
+                    {c.label}
+                  </button>
+                );
+              })}
+              <span className="w-px h-5 bg-white/10" />
               <button
                 onClick={() => setRosterOnly(!rosterOnly)}
                 className={`text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border ${
@@ -716,6 +744,16 @@ export default function AttendancePage() {
                       <td className="px-4 py-3 text-gray-400">
                         {s.employee.track}
                         {s.employee.trackDetail ? ` — ${s.employee.trackDetail}` : ''}
+                        {/* CHANGE 3: inline city pill */}
+                        {s.employee.center === 'makkah' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-medium ml-2 bg-emerald-500/15 text-emerald-300">🕋 مكة</span>
+                        )}
+                        {s.employee.center === 'madinah' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-medium ml-2 bg-blue-500/15 text-blue-300">🕌 المدينة</span>
+                        )}
+                        {s.employee.center === 'shared' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-md font-medium ml-2 bg-gray-500/15 text-gray-300">مشترك</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-gray-300 tabular-nums">{s.firstCheckIn ?? '—'}</td>
                       <td className="px-4 py-3 text-gray-300 tabular-nums">{s.lastCheckOut ?? '—'}</td>
