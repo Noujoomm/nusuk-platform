@@ -1,72 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { NavLink } from '@/components/navigation/NavLink';
 import { useAuth } from '@/stores/auth';
 import { useSidebar } from '@/stores/sidebar';
 import { cn, ROLE_LABELS } from '@/lib/utils';
 import { dailyUpdatesApi } from '@/lib/api';
-import {
-  LayoutDashboard,
-  GitBranch,
-  Users,
-  LogOut,
-  Target,
-  AlertTriangle,
-  FileText,
-  FolderOpen,
-  UserCheck,
-  CheckSquare,
-  Brain,
-  TrendingUp,
-  Activity,
-  Upload,
-  Search,
-  Sparkles,
-  BarChart3,
-  Database,
-  GanttChart,
-  CalendarRange,
-  ClipboardList,
-  Receipt,
-  Fingerprint,
-  Files,
-  Archive,
-  ScanSearch,
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { navItemsForRole } from '@/lib/nav';
 import NotificationBell from '@/components/notifications/notification-bell';
 import { Logo } from '@/components/brand/Logo';
-
-const NAV_ITEMS = [
-  { href: '/', label: 'لوحة التحكم', icon: LayoutDashboard, roles: ['admin', 'pm', 'track_lead', 'employee', 'hr'] },
-  { href: '/dashboard', label: 'لوحة القيادة', icon: BarChart3, roles: ['admin', 'system_manager', 'pm', 'track_lead', 'employee', 'hr'] },
-  { href: '/tracks', label: 'المسارات', icon: GitBranch, roles: ['admin', 'pm', 'track_lead', 'employee'] },
-  { href: '/tasks', label: 'المهام', icon: CheckSquare, roles: ['admin', 'pm', 'track_lead', 'employee'] },
-  { href: '/gantt', label: 'مخطط جانت', icon: GanttChart, roles: ['admin', 'pm', 'track_lead'] },
-  { href: '/productivity', label: 'الإنتاجية', icon: Activity, roles: ['admin', 'pm'] },
-  { href: '/reports', label: 'التقارير', icon: FileText, roles: ['admin', 'pm', 'track_lead'] },
-  { href: '/assistant', label: 'مساعد رؤية', icon: Sparkles, roles: ['admin', 'system_manager', 'pm', 'track_lead', 'employee', 'hr'] },
-  { href: '/ai-reports', label: 'التقارير الذكية', icon: Brain, roles: ['admin', 'pm'] },
-  { href: '/reports-intelligence', label: 'مركز ذكاء التقارير', icon: Sparkles, roles: ['admin', 'system_manager'] },
-  { href: '/penalties', label: 'الغرامات', icon: AlertTriangle, roles: ['admin', 'pm'] },
-  { href: '/employees', label: 'الموظفون', icon: UserCheck, roles: ['admin', 'pm', 'hr'] },
-  { href: '/files', label: 'الملفات', icon: FolderOpen, roles: ['admin', 'pm', 'track_lead'] },
-  { href: '/search', label: 'البحث الذكي', icon: Search, roles: ['admin', 'pm', 'track_lead', 'employee', 'hr'] },
-  { href: '/ai-analyze', label: 'تحليل الملفات AI', icon: Sparkles, roles: ['admin', 'pm'] },
-  { href: '/import', label: 'استيراد البيانات', icon: Upload, roles: ['admin', 'pm', 'hr'] },
-  { href: '/executive-tasks', label: 'المهام التنفيذية', icon: ClipboardList, roles: ['admin', 'pm'] },
-  { href: '/updates', label: 'التحديثات', icon: Activity, roles: ['admin', 'pm', 'track_lead', 'employee', 'hr'] },
-  { href: '/support-services', label: 'خدمات المساندة', icon: Receipt, roles: ['admin', 'pm'] },
-  { href: '/distribution-analyzer', label: 'محلل نسبة الإنجاز', icon: ScanSearch, roles: ['admin', 'system_manager', 'pm', 'track_lead', 'employee', 'hr'] },
-  { href: '/attendance', label: 'الحضور والانصراف', icon: Fingerprint, roles: ['admin', 'system_manager'] },
-  { href: '/attendance/uploads', label: 'سجل ملفات الحضور', icon: Files, roles: ['admin', 'system_manager'] },
-  { href: '/attendance/archive', label: 'أرشيف الحضور', icon: Archive, roles: ['admin', 'system_manager'] },
-  { href: '/attendance-analytics/makkah', label: 'تحليل حضور مكة', icon: BarChart3, roles: ['admin', 'system_manager'] },
-  { href: '/attendance-analytics/madinah', label: 'تحليل حضور المدينة', icon: BarChart3, roles: ['admin', 'system_manager'] },
-  { href: '/users', label: 'المستخدمين', icon: Users, roles: ['admin'] },
-  { href: '/system-export', label: 'النظام والنسخ', icon: Database, roles: ['admin'] },
-];
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -115,12 +59,13 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-auto">
-        {NAV_ITEMS.filter((item) => user && item.roles.includes(user.role)).map((item) => {
+        {navItemsForRole(user?.role).map((item) => {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           return (
-            <Link
+            <NavLink
               key={item.href}
               href={item.href}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
                 isActive
@@ -135,7 +80,7 @@ export default function Sidebar() {
                   {unreadUpdates > 99 ? '99+' : unreadUpdates}
                 </span>
               )}
-            </Link>
+            </NavLink>
           );
         })}
       </nav>

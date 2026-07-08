@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { cn, formatDate, TASK_STATUS_LABELS, TASK_STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, ASSIGNEE_TYPE_LABELS, ASSIGNEE_TYPE_COLORS } from '@/lib/utils';
 import { Calendar, Users, User, Building2, Globe, Hash, CheckSquare, RefreshCw, Paperclip, ChevronDown, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { Task } from '@/stores/tasks';
@@ -33,7 +33,7 @@ const ASSIGNEE_TYPE_ICONS: Record<string, typeof Users> = {
   GLOBAL: Globe,
 };
 
-export default function TaskCard({ task, onClick, onStatusChange, onEdit, onDelete }: Props) {
+function TaskCard({ task, onClick, onStatusChange, onEdit, onDelete }: Props) {
   const [statusOpen, setStatusOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [optimisticStatus, setOptimisticStatus] = useState<string | null>(null);
@@ -279,3 +279,7 @@ export default function TaskCard({ task, onClick, onStatusChange, onEdit, onDele
     </button>
   );
 }
+
+// memo: بطاقة المهمة تُصيَّر بكثرة داخل قوائم طويلة؛ تتجنّب إعادة الرسم ما
+// لم تتغيّر props (مع callbacks ثابتة من الأب) — أداء أفضل في القوائم.
+export default memo(TaskCard);

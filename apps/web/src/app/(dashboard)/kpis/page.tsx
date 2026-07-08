@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { kpisApi, tracksApi } from '@/lib/api';
 import { formatNumber, formatDate } from '@/lib/utils';
 import { Target, Search, TrendingUp, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { LazyDonutChart } from '@/components/charts/LazyDonutChart';
 import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface KPI {
@@ -203,35 +203,11 @@ export default function KPIsPage() {
             توزيع المؤشرات حسب الحالة
           </h3>
           {statusChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={statusChartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={90}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {statusChartData.map((_, i) => (
-                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#ffffff', direction: 'rtl' as const, padding: '10px 14px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', fontSize: '12px' }}
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
-                  itemStyle={{ color: '#e5e7eb' }}
-                  formatter={(value: any) => [formatNumber(Number(value)), 'العدد']}
-                />
-                <Legend
-                  formatter={(value) => (
-                    <span className="text-xs text-gray-400">{value}</span>
-                  )}
-                  iconSize={8}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <LazyDonutChart
+              data={statusChartData}
+              colors={CHART_COLORS}
+              valueFormatter={(value) => [formatNumber(value), 'العدد']}
+            />
           ) : (
             <div className="h-[280px] flex items-center justify-center text-gray-500 text-sm">
               لا توجد بيانات
@@ -245,35 +221,11 @@ export default function KPIsPage() {
             توزيع المؤشرات حسب التصنيف
           </h3>
           {categoryChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie
-                  data={categoryChartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={90}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {categoryChartData.map((_, i) => (
-                    <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#ffffff', direction: 'rtl' as const, padding: '10px 14px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', fontSize: '12px' }}
-                  labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
-                  itemStyle={{ color: '#e5e7eb' }}
-                  formatter={(value: any) => [formatNumber(Number(value)), 'العدد']}
-                />
-                <Legend
-                  formatter={(value) => (
-                    <span className="text-xs text-gray-400">{value}</span>
-                  )}
-                  iconSize={8}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <LazyDonutChart
+              data={categoryChartData}
+              colors={CHART_COLORS}
+              valueFormatter={(value) => [formatNumber(value), 'العدد']}
+            />
           ) : (
             <div className="h-[280px] flex items-center justify-center text-gray-500 text-sm">
               لا توجد بيانات
