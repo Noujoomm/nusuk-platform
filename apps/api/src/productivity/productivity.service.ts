@@ -289,9 +289,17 @@ export class ProductivityService {
     const today = new Date();
 
     const [tasks, tracks, dbSnapshots] = await Promise.all([
+      // نختار فقط الحقول التي يقرأها mapTaskToScoring (كان include للمسار
+      // غير مستخدم — بيانات المسار تأتي من استعلام tracks المنفصل).
       this.prisma.task.findMany({
         where: { isDeleted: false, trackId: { not: null } },
-        include: { track: { select: { id: true, name: true, nameAr: true, contractValue: true } } },
+        select: {
+          id: true, title: true, titleAr: true, trackId: true,
+          taskSource: true, priority: true, status: true, progress: true,
+          startDate: true, dueDate: true, completionDate: true,
+          approvalStatus: true, resubmitCount: true, isBlocked: true,
+          blockReason: true,
+        },
       }),
       this.prisma.track.findMany({
         where: { isActive: true },

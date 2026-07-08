@@ -44,11 +44,31 @@ export class AiEngineService {
       where: { isActive: true },
       select: { id: true, nameAr: true },
     });
-    const trackStats = await Promise.all(tracks.map(async (t) => {
-      const total = await this.prisma.task.count({ where: { ...taskWhere, trackId: t.id } });
-      const done = await this.prisma.task.count({ where: { ...taskWhere, trackId: t.id, status: 'completed' } });
+    // بدل 2N استعلام count لكل مسار: تجميعة DB واحدة عبر (trackId, status)
+    // ثم نجمّع في الذاكرة. نفس المخرجات، عدد استعلامات ثابت.
+    const trackIds = tracks.map((t) => t.id);
+    const groupedByTrack = trackIds.length
+      ? await this.prisma.task.groupBy({
+          by: ['trackId', 'status'],
+          where: { ...taskWhere, trackId: { in: trackIds } },
+          _count: { _all: true },
+        })
+      : [];
+    const totalByTrack = new Map<string, number>();
+    const doneByTrack = new Map<string, number>();
+    for (const g of groupedByTrack) {
+      const tid = g.trackId as string;
+      const c = g._count._all;
+      totalByTrack.set(tid, (totalByTrack.get(tid) || 0) + c);
+      if (g.status === 'completed') {
+        doneByTrack.set(tid, (doneByTrack.get(tid) || 0) + c);
+      }
+    }
+    const trackStats = tracks.map((t) => {
+      const total = totalByTrack.get(t.id) || 0;
+      const done = doneByTrack.get(t.id) || 0;
       return { name: t.nameAr, rate: total > 0 ? Math.round((done / total) * 100) : 0 };
-    }));
+    });
     const sorted = trackStats.filter((t) => t.rate >= 0).sort((a, b) => b.rate - a.rate);
     const best = sorted[0] || { name: '—', rate: 0 };
     const worst = sorted[sorted.length - 1] || { name: '—', rate: 0 };
@@ -347,11 +367,40 @@ export class AiEngineService {
       select: { id: true, nameAr: true, color: true },
     });
 
-    const trackIntel = await Promise.all(tracks.map(async (track) => {
-      const tasks = await this.prisma.task.findMany({
-        where: { ...taskWhere, trackId: track.id },
-        select: { id: true, status: true, priority: true, startDate: true, dueDate: true, completionDate: true, createdById: true, progress: true },
-      });
+    const trackIds = tracks.map((t) => t.id);
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
+
+    // كل مهام المسارات النشطة في استعلام واحد (بدل findMany لكل مسار)،
+    // ثم نجمّعها في الذاكرة بحسب المسار — نفس منطق الحساب دون N استعلام.
+    const allTasks = trackIds.length
+      ? await this.prisma.task.findMany({
+          where: { ...taskWhere, trackId: { in: trackIds } },
+          select: { id: true, trackId: true, status: true, priority: true, startDate: true, dueDate: true, completionDate: true, createdById: true, progress: true },
+        })
+      : [];
+    const tasksByTrack = new Map<string, typeof allTasks>();
+    for (const t of allTasks) {
+      const tid = t.trackId as string;
+      const arr = tasksByTrack.get(tid);
+      if (arr) arr.push(t);
+      else tasksByTrack.set(tid, [t]);
+    }
+
+    // عدد تقارير آخر 7 أيام لكل مسار في تجميعة واحدة (بدل count لكل مسار).
+    const reportGroups = trackIds.length
+      ? await this.prisma.report.groupBy({
+          by: ['trackId'],
+          where: { trackId: { in: trackIds }, createdAt: { gte: sevenDaysAgo } },
+          _count: { _all: true },
+        })
+      : [];
+    const reportsByTrack = new Map<string, number>();
+    for (const g of reportGroups) {
+      if (g.trackId) reportsByTrack.set(g.trackId, g._count._all);
+    }
+
+    const trackIntel = tracks.map((track) => {
+      const tasks = tasksByTrack.get(track.id) || [];
 
       const total = tasks.length;
       if (total === 0) return null;
@@ -398,8 +447,8 @@ export class AiEngineService {
       ];
       const bottleneck = stages.sort((a, b) => b.count - a.count)[0];
 
-      // Reports count (last 7 days)
-      const reports = await this.prisma.report.count({ where: { trackId: track.id, createdAt: { gte: new Date(now.getTime() - 7 * 86400000) } } });
+      // Reports count (last 7 days) — من التجميعة المحسوبة مسبقاً
+      const reports = reportsByTrack.get(track.id) || 0;
 
       // ── DIAGNOSTIC: Root cause ──
       const rootCauses: string[] = [];
@@ -446,7 +495,7 @@ export class AiEngineService {
         // DNA
         speedScore, disciplineScore, executionScore, riskScore: risk,
       };
-    }));
+    });
 
     const validTracks = trackIntel.filter(Boolean) as NonNullable<typeof trackIntel[number]>[];
     validTracks.sort((a, b) => b!.weightedCompletion - a!.weightedCompletion);

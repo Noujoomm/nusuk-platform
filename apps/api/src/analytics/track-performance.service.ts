@@ -73,16 +73,30 @@ export class TrackPerformanceService {
       orderBy: { sortOrder: 'asc' },
     });
 
+    // بدل findMany لكل مسار داخل حلقة (N استعلام تسلسلي): استعلام واحد
+    // لكل مهام المسارات النشطة، ثم تجميع في الذاكرة بحسب المسار.
+    const trackIds = tracks.map((t) => t.id);
+    const allTasks = trackIds.length
+      ? await this.prisma.task.findMany({
+          where: { trackId: { in: trackIds }, isDeleted: false },
+          select: {
+            id: true, trackId: true, status: true, priority: true,
+            startDate: true, dueDate: true, completionDate: true,
+            createdAt: true,
+          },
+        })
+      : [];
+    const tasksByTrack = new Map<string, any[]>();
+    for (const task of allTasks) {
+      const tid = task.trackId as string;
+      const arr = tasksByTrack.get(tid);
+      if (arr) arr.push(task);
+      else tasksByTrack.set(tid, [task]);
+    }
+
     const results: TrackMetrics[] = [];
     for (const t of tracks) {
-      const tasks = await this.prisma.task.findMany({
-        where: { trackId: t.id, isDeleted: false },
-        select: {
-          id: true, status: true, priority: true,
-          startDate: true, dueDate: true, completionDate: true,
-          createdAt: true,
-        },
-      });
+      const tasks = tasksByTrack.get(t.id) || [];
       results.push(this.computeMetrics(t.id, t.nameAr, t.color || '#6366f1', tasks));
     }
 

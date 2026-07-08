@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { tracksApi } from '@/lib/api';
+import { useTracksQuery, queryKeys } from '@/lib/queries';
 import { useAuth } from '@/stores/auth';
 import { GitBranch, Plus, Trash2, Edit3, X } from 'lucide-react';
 import { RoyaLoader } from '@/components/ui/RoyaLoader';
@@ -24,26 +26,21 @@ const TRACK_COLORS = [
 
 export default function TracksPage() {
   const { user } = useAuth();
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  // البيانات من الكاش: الرجوع للقسم خلال دقيقة = فوري بلا إعادة جلب.
+  const { data, isLoading: loading, isError } = useTracksQuery();
+  const tracks: Track[] = (data ?? []) as Track[];
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Track | null>(null);
   const [editTarget, setEditTarget] = useState<Track | null>(null);
   const isAdmin = user?.role === 'admin' || user?.role === 'pm';
 
-  useEffect(() => {
-    loadTracks();
-  }, []);
+  // بعد أي طفرة نُبطل الكاش ليُعاد الجلب مرة واحدة.
+  const loadTracks = () => queryClient.invalidateQueries({ queryKey: queryKeys.tracks });
 
-  const loadTracks = async () => {
-    try {
-      const { data } = await tracksApi.list();
-      setTracks(data);
-    } catch {
-      toast.error('فشل تحميل المسارات');
-    }
-    setLoading(false);
-  };
+  useEffect(() => {
+    if (isError) toast.error('فشل تحميل المسارات');
+  }, [isError]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;

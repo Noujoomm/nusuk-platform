@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { employeesApi, tracksApi } from '@/lib/api';
+import { employeesApi } from '@/lib/api';
+import { useTracksQuery } from '@/lib/queries';
 import { formatNumber } from '@/lib/utils';
 import {
   Users,
@@ -94,7 +95,9 @@ function formatDate(date: string | null | undefined): string {
 export default function EmployeesPage() {
   const { user } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [tracks, setTracks] = useState<Track[]>([]);
+  // قائمة المسارات من الكاش المشترك (نفس البيانات عبر كل الأقسام).
+  const { data: tracksData } = useTracksQuery();
+  const tracks: Track[] = (tracksData ?? []) as Track[];
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [trackFilter, setTrackFilter] = useState('');
@@ -161,12 +164,8 @@ export default function EmployeesPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [empRes, trackRes] = await Promise.all([
-          employeesApi.list({}),
-          tracksApi.list(),
-        ]);
+        const empRes = await employeesApi.list({});
         setEmployees(empRes.data);
-        setTracks(trackRes.data);
       } catch {
         // silent
       }

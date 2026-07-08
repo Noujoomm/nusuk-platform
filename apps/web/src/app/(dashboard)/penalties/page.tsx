@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { penaltiesApi, tracksApi } from '@/lib/api';
 import { formatDate, formatNumber } from '@/lib/utils';
 import { AlertTriangle, Search, Shield, CheckCircle, XCircle } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { LazyDonutChart } from '@/components/charts/LazyDonutChart';
 import { RoyaLoader } from '@/components/ui/RoyaLoader';
 
 interface Track {
@@ -163,33 +163,13 @@ export default function PenaltiesPage() {
       <div className="glass p-5">
         <h3 className="text-sm font-semibold text-gray-300 mb-4">التوزيع حسب الخطورة</h3>
         {severityChartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie
-                data={severityChartData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {severityChartData.map((_, i) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{ backgroundColor: 'rgba(15,23,42,0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#ffffff', direction: 'rtl' as const, padding: '10px 14px', boxShadow: '0 8px 32px rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', fontSize: '12px' }}
-                labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
-                itemStyle={{ color: '#e5e7eb' }}
-                formatter={(value: any) => [`${formatNumber(Number(value))} مخالفة`, 'العدد']}
-              />
-              <Legend
-                formatter={(value) => <span className="text-xs text-gray-400">{value}</span>}
-                iconSize={8}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          <LazyDonutChart
+            data={severityChartData}
+            colors={CHART_COLORS}
+            innerRadius={60}
+            outerRadius={100}
+            valueFormatter={(value) => [`${formatNumber(value)} مخالفة`, 'العدد']}
+          />
         ) : (
           <div className="h-[280px] flex items-center justify-center text-gray-500 text-sm">
             لا توجد بيانات

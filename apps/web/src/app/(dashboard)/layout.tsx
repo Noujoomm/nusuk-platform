@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { useAuth } from '@/stores/auth';
 import { useSidebar } from '@/stores/sidebar';
+import { useScrollRestoration } from '@/hooks/use-scroll-restoration';
 import { cn } from '@/lib/utils';
 import Sidebar from '@/components/sidebar';
 import { MotionProvider } from '@/components/motion/MotionProvider';
+import { NavigationProvider } from '@/components/navigation/NavigationProvider';
 import { PageTransition } from '@/components/motion/PageTransition';
 import GlobalSearch from '@/components/global-search';
 import BottomDock from '@/components/ui/bottom-dock';
@@ -20,6 +22,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [searchOpen, setSearchOpen] = useState(false);
   const sidebarCollapsed = useSidebar((s) => s.collapsed);
   const toggleSidebar = useSidebar((s) => s.toggle);
+  const mainRef = useRef<HTMLElement>(null);
+  useScrollRestoration(mainRef);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -68,9 +72,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <MotionProvider>
+    <NavigationProvider>
     <div className="min-h-screen flex bg-gray-950">
       <Sidebar />
       <main
+        ref={mainRef}
         className={cn(
           'flex-1 p-6 pb-20 overflow-auto transition-[margin] duration-300 ease-in-out motion-reduce:transition-none',
           sidebarCollapsed ? 'mr-0' : 'mr-64',
@@ -102,6 +108,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
       <BottomDock />
     </div>
+    </NavigationProvider>
     </MotionProvider>
   );
 }
