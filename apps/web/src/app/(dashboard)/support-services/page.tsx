@@ -17,10 +17,10 @@ type MainTab = 'funds' | 'requests';
 
 export default function SupportServicesPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'pm';
+  const canAccess = user?.role === 'admin' || user?.role === 'pm' || user?.role === 'support_services';
   const [mainTab, setMainTab] = useState<MainTab>('funds');
 
-  if (!isAdmin) return <div className="flex flex-col items-center justify-center gap-3 py-20 text-gray-400"><Shield className="h-12 w-12" /><p className="text-sm">غير مصرح بالوصول</p></div>;
+  if (!canAccess) return <div className="flex flex-col items-center justify-center gap-3 py-20 text-gray-400"><Shield className="h-12 w-12" /><p className="text-sm">غير مصرح بالوصول</p></div>;
 
   return (
     <div className="space-y-6 pb-20" dir="rtl">

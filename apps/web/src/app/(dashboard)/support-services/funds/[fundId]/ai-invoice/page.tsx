@@ -102,7 +102,8 @@ export default function AIInvoiceAnalyzerPage() {
     user?.role === 'admin' ||
     user?.role === 'system_manager' ||
     user?.role === 'pm' ||
-    user?.role === 'track_lead';
+    user?.role === 'track_lead' ||
+    user?.role === 'support_services';
 
   useEffect(() => {
     if (user && !allowed) router.replace('/support-services');
