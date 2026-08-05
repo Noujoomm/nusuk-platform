@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma.service';
 
 @Injectable()
@@ -9,8 +9,14 @@ export class CustodyFundsService {
 
   // ═══ FUNDS ═══════════════════════════════════════════════
 
-  async listFunds() {
+  async listFunds(user?: { id: string; role: string }) {
+    // الدور المقيّد «الخدمات المساندة» يرى فقط العهد التي هو عضو فيها.
+    const where =
+      user?.role === 'support_services'
+        ? { members: { some: { userId: user.id } } }
+        : {};
     return this.prisma.custodyFund.findMany({
+      where,
       include: {
         createdBy: { select: { id: true, nameAr: true } },
         closedBy: { select: { id: true, nameAr: true } },
@@ -32,7 +38,7 @@ export class CustodyFundsService {
     });
   }
 
-  async getFund(id: string) {
+  async getFund(id: string, user?: { id: string; role: string }) {
     // Detail view used to `include: invoices` which silently pulled the
     // `attachmentData` Bytes column on every row. With AI-batch saving 5–7 MB
     // PDFs per invoice, a single fund with ~10 invoices was returning ~50 MB
@@ -71,6 +77,12 @@ export class CustodyFundsService {
     }
 
     if (!fund) throw new NotFoundException('العهدة غير موجودة');
+
+    // الدور المقيّد «الخدمات المساندة» لا يصل إلا للعهد التي هو عضو فيها.
+    if (user?.role === 'support_services' && !fund.members.some((m) => m.userId === user.id)) {
+      throw new ForbiddenException('ليس لديك صلاحية لعرض هذه العهدة');
+    }
+
     return fund;
   }
 

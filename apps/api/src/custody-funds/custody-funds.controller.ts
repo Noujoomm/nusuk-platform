@@ -20,7 +20,7 @@ export class CustodyFundsController {
 
   // ─── Funds CRUD ─────────────────────
   @Get()
-  list() { return this.service.listFunds(); }
+  list(@CurrentUser() user: any) { return this.service.listFunds(user); }
 
   @Post()
   create(@Body() body: any, @CurrentUser() user: any) {
@@ -28,7 +28,7 @@ export class CustodyFundsController {
   }
 
   @Get(':id')
-  get(@Param('id') id: string) { return this.service.getFund(id); }
+  get(@Param('id') id: string, @CurrentUser() user: any) { return this.service.getFund(id, user); }
 
   @Patch(':id')
   @Roles('admin')
