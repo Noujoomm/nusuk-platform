@@ -29,7 +29,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      router.push('/');
+      // الدور المقيّد «الخدمات المساندة» يُوجَّه مباشرة لقسمه الوحيد
+      const role = useAuth.getState().user?.role;
+      router.push(role === 'support_services' ? '/support-services' : '/');
     } catch (err: any) {
       let message: string;
       if (err.code === 'ECONNABORTED') {

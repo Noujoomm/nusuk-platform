@@ -6,7 +6,8 @@
  * للأدوار المذكورة في `roles` — نفس القاعدة المطبّقة في الـ backend عبر
  * @Roles()/Guards.
  *
- * الأدوار الستة: admin, system_manager, pm, track_lead, employee, hr.
+ * الأدوار: admin, system_manager, pm, track_lead, employee, hr,
+ * support_services (دور مقيّد يرى قسم «الخدمات المساندة» فقط).
  */
 
 import type { LucideIcon } from 'lucide-react';
@@ -41,7 +42,8 @@ export type Role =
   | 'pm'
   | 'track_lead'
   | 'employee'
-  | 'hr';
+  | 'hr'
+  | 'support_services';
 
 export interface NavItem {
   href: string;
@@ -71,7 +73,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/import', label: 'استيراد البيانات', icon: Upload, roles: ['admin', 'pm', 'hr'], keywords: ['import', 'استيراد', 'excel'] },
   { href: '/executive-tasks', label: 'المهام التنفيذية', icon: ClipboardList, roles: ['admin', 'pm'], keywords: ['executive', 'تنفيذية'] },
   { href: '/updates', label: 'التحديثات', icon: Activity, roles: ['admin', 'pm', 'track_lead', 'employee', 'hr'], keywords: ['updates', 'تحديثات', 'news'] },
-  { href: '/support-services', label: 'خدمات المساندة', icon: Receipt, roles: ['admin', 'pm'], keywords: ['support', 'مساندة', 'funds', 'invoices'] },
+  { href: '/support-services', label: 'خدمات المساندة', icon: Receipt, roles: ['admin', 'pm', 'support_services'], keywords: ['support', 'مساندة', 'funds', 'invoices'] },
   { href: '/distribution-analyzer', label: 'محلل نسبة الإنجاز', icon: ScanSearch, roles: ['admin', 'system_manager', 'pm', 'track_lead', 'employee', 'hr'], keywords: ['distribution', 'توزيع', 'إنجاز'] },
   { href: '/attendance', label: 'الحضور والانصراف', icon: Fingerprint, roles: ['admin', 'system_manager'], keywords: ['attendance', 'حضور', 'غياب', 'انصراف'] },
   { href: '/attendance/uploads', label: 'سجل ملفات الحضور', icon: Files, roles: ['admin', 'system_manager'], keywords: ['attendance uploads', 'ملفات الحضور'] },

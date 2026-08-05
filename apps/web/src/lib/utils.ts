@@ -67,6 +67,7 @@ export const ROLE_LABELS: Record<string, string> = {
   track_lead: 'قائد المسار',
   employee: 'موظف',
   hr: 'موارد بشرية',
+  support_services: 'الخدمات المساندة',
 };
 
 export const STATUS_COLORS: Record<string, string> = {

@@ -137,6 +137,7 @@ enum Role {
   track_lead
   employee
   hr
+  support_services
 }
 
 // ─── TRACKS ───

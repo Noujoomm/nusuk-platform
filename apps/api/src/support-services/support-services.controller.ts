@@ -16,7 +16,7 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 
 @Controller('support-services')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'pm')
+@Roles('admin', 'pm', 'support_services')
 export class SupportServicesController {
   constructor(private service: SupportServicesService) {}
 

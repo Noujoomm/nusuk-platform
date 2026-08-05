@@ -50,7 +50,7 @@ const tempStorage = diskStorage({
  */
 @Controller('custody-funds/:fundId/ai-invoice')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'system_manager', 'pm', 'track_lead')
+@Roles('admin', 'system_manager', 'pm', 'track_lead', 'support_services')
 export class AIAnalyzerController {
   constructor(
     private readonly analyzer: AIAnalyzerService,

@@ -14,7 +14,7 @@ import { setFileResponseHeaders } from '../common/utils/file-response.util';
 
 @Controller('custody-funds')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin', 'pm')
+@Roles('admin', 'pm', 'support_services')
 export class CustodyFundsController {
   constructor(private service: CustodyFundsService) {}
 

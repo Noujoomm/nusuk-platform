@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/stores/auth';
 import { RoyaLoader } from '@/components/ui/RoyaLoader';
 import EmployeeDashboard from '@/components/dashboards/employee-dashboard';
@@ -9,8 +11,16 @@ import AdminDashboard from '@/components/dashboards/admin-dashboard';
 
 export default function DashboardPage() {
   const { user, loading } = useAuth();
+  const router = useRouter();
 
-  if (loading) {
+  // الدور المقيّد «الخدمات المساندة» لا يملك لوحة تحكم — يُعاد لقسمه الوحيد
+  useEffect(() => {
+    if (!loading && user?.role === 'support_services') {
+      router.replace('/support-services');
+    }
+  }, [loading, user?.role, router]);
+
+  if (loading || user?.role === 'support_services') {
     return (
       <div className="flex items-center justify-center h-64">
         <RoyaLoader fullScreen={false} size="md" />

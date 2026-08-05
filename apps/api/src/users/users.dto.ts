@@ -18,7 +18,7 @@ export class CreateUserDto {
   @MinLength(6, { message: 'كلمة المرور يجب أن تكون 6 أحرف على الأقل' })
   password: string;
 
-  @IsEnum(['admin', 'pm', 'track_lead', 'employee', 'hr'], { message: 'الدور غير صالح' })
+  @IsEnum(['admin', 'pm', 'track_lead', 'employee', 'hr', 'support_services'], { message: 'الدور غير صالح' })
   role: string;
 }
 
@@ -37,7 +37,7 @@ export class UpdateUserDto {
   nameAr?: string;
 
   @IsOptional()
-  @IsEnum(['admin', 'pm', 'track_lead', 'employee', 'hr'])
+  @IsEnum(['admin', 'pm', 'track_lead', 'employee', 'hr', 'support_services'])
   role?: string;
 
   @IsOptional()
