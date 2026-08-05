@@ -109,7 +109,7 @@ export class CustodyFundsController {
    * saving the error JSON as a .json download.
    */
   @Get('invoices/:iid/download')
-  @Roles('admin')
+  @Roles('admin', 'support_services')
   async downloadInvoice(@Param('iid') iid: string, @Res() res: Response) {
     const invoice = await this.service.getInvoice(iid);
     if (!invoice) throw new NotFoundException('الفاتورة غير موجودة');

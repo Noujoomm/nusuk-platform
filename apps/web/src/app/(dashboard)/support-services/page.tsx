@@ -145,7 +145,11 @@ function FundsModule() {
 function FundDetail({ fund: f, allUsers, onBack, onRefresh }: { fund: any; allUsers: any[]; onBack: () => void; onRefresh: () => void }) {
   const { user } = useAuth();
   const isAdminUser = user?.role === 'admin';
-  const [tab, setTab] = useState<'ledger' | 'members' | 'invoices'>('ledger');
+  const isSupportUser = user?.role === 'support_services';
+  // من يستطيع فتح/تحميل مرفق الفاتورة: الإدارة + دور الخدمات المساندة.
+  const canViewInvoiceFile = isAdminUser || isSupportUser;
+  // دور الخدمات المساندة يبدأ على تبويب الفواتير مباشرةً (هو غرضه الأساسي).
+  const [tab, setTab] = useState<'ledger' | 'members' | 'invoices'>(isSupportUser ? 'invoices' : 'ledger');
   const [ledger, setLedger] = useState<any[]>([]);
   const [showTxForm, setShowTxForm] = useState(false);
   const [showInvForm, setShowInvForm] = useState(false);
@@ -412,7 +416,7 @@ function FundDetail({ fund: f, allUsers, onBack, onRefresh }: { fund: any; allUs
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {inv.attachmentOriginalName && isAdminUser && (
+                    {inv.attachmentOriginalName && canViewInvoiceFile && (
                       <button
                         type="button"
                         onClick={async () => {
@@ -455,7 +459,7 @@ function FundDetail({ fund: f, allUsers, onBack, onRefresh }: { fund: any; allUs
                         📎 {fixArabicMojibake(inv.attachmentOriginalName)}
                       </button>
                     )}
-                    {inv.attachmentOriginalName && !isAdminUser && <span className="text-[10px] text-gray-500">📎 {fixArabicMojibake(inv.attachmentOriginalName)}</span>}
+                    {inv.attachmentOriginalName && !canViewInvoiceFile && <span className="text-[10px] text-gray-500">📎 {fixArabicMojibake(inv.attachmentOriginalName)}</span>}
                     <span className={cn('text-[9px] px-1.5 py-0.5 rounded-full',
                       inv.status === 'approved' ? 'bg-emerald-500/20 text-emerald-300' : inv.status === 'rejected' ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300')}>
                       {inv.status === 'approved' ? 'مقبولة' : inv.status === 'rejected' ? 'مرفوضة' : 'قيد المراجعة'}
