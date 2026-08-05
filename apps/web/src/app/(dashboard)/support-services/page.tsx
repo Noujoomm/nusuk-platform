@@ -52,10 +52,15 @@ function FundsModule() {
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
-    try {
-      const [f, u] = await Promise.all([custodyFundsApi.list(), usersApi.list({ pageSize: 200 })]);
-      setFunds(f.data || []); setAllUsers(u.data.data || u.data || []);
-    } catch {} finally { setLoading(false); }
+    // Decoupled: the users list is admin-only (used for member assignment), so
+    // its 403 for the support_services role must NOT wipe out the funds list.
+    const [fRes, uRes] = await Promise.allSettled([
+      custodyFundsApi.list(),
+      usersApi.list({ pageSize: 200 }),
+    ]);
+    if (fRes.status === 'fulfilled') setFunds(fRes.value.data || []);
+    if (uRes.status === 'fulfilled') setAllUsers(uRes.value.data.data || uRes.value.data || []);
+    setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
