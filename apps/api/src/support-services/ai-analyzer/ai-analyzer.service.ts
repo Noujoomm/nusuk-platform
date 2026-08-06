@@ -18,9 +18,9 @@ import * as path from 'path';
 import { randomUUID } from 'crypto';
 import {
   FilePayload,
-  readAsBase64,
   resolveMediaType,
 } from './utils/file-to-base64';
+import { prepareImageForClaude } from './utils/prepare-image-for-claude';
 import {
   CandidateInvoice,
   detectDuplicates,
@@ -186,9 +186,10 @@ export class AIAnalyzerService {
     });
 
     try {
-      const { base64, sizeBytes } = readAsBase64(targetPath);
+      const imageBuffer = fs.readFileSync(targetPath);
+      const sizeBytes = imageBuffer.length;
       const { extracted, tokensIn, tokensOut } = await this.visionExtract(
-        base64,
+        imageBuffer,
         mediaType,
       );
 
@@ -439,21 +440,28 @@ export class AIAnalyzerService {
   // ── Claude Vision + text calls ─────────────────────────────────────────
 
   private async visionExtract(
-    base64: string,
+    imageBuffer: Buffer,
     mediaType: FilePayload['mediaType'],
   ): Promise<{ extracted: Record<string, unknown>; tokensIn: number; tokensOut: number }> {
     const model =
       this.config.get('ANTHROPIC_MODEL_DEFAULT') || 'claude-sonnet-4-5';
 
+    // Downscale/re-encode oversized images so the base64 payload stays under
+    // Anthropic's 10 MB limit. PDFs and small images pass through untouched;
+    // when an image is re-encoded to JPEG the media_type is updated to match.
+    const { buffer: apiBuffer, mediaType: apiMediaType } =
+      await prepareImageForClaude(imageBuffer, mediaType, (m) => this.logger.log(m));
+    const base64 = apiBuffer.toString('base64');
+
     const imageBlock: any =
-      mediaType === 'application/pdf'
+      apiMediaType === 'application/pdf'
         ? {
             type: 'document',
-            source: { type: 'base64', media_type: mediaType, data: base64 },
+            source: { type: 'base64', media_type: apiMediaType, data: base64 },
           }
         : {
             type: 'image',
-            source: { type: 'base64', media_type: mediaType, data: base64 },
+            source: { type: 'base64', media_type: apiMediaType, data: base64 },
           };
 
     return this.withRetries(async () => {
